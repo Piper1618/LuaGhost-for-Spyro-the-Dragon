@@ -18,7 +18,7 @@ function string.split(inputstr, sep)
 end
 
 function string.trim(String)
-	return bizstring.trim(String)
+	return bizstring.trim(String) or ""
 end
 
 function table.globalize(t)
