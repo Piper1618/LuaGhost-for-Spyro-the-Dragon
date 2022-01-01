@@ -1,11 +1,18 @@
 #LuaGhost: Spyro the Dragon
 This script can be run through the Lua console in the [BizHawk emulator](http://tasvideos.org/BizHawk.html) to add ghost recording and playback functionality to the PlayStation 1 game Spyro the Dragon. It is intended for use as a practice or learning tool for speedrunning. Note that this is not intended to be used for leaderboard runs and I do not know of any real-time leaderboard that would consider the use of such a tool during runs to be legal.
-#Setup and Use
+#Setup
 The script is designed to work with BizHawk version 1.6.1. The emulator must be running the NTSC or PAL version of Spyro the Dragon. It is not compatible with the later Spyro games, only the first in the original trilogy.
-BizHawk has some graphics settings which may cause issues if configured incorrectly, so you'll want to check the settings in "PSX -> Options".
+BizHawk has some graphics settings which may cause issues if configured incorrectly, so you'll want to check the settings in "PSX" -> "Options".
 - Resolution Management: Should be set to either "Mednafen Mode" or "Tweaked Mednafed Mode".
 - Drawing Area: Should be set to Full (0 to 239 on NTSC or 0 to 287 on PAL).
 - Horizontal Overscan Clipping: Should be set to either "None" or "Clip to Framebuffer".
+#Starting the Script
+To start the script, open the game in BizHawk and then navigate to "Tools" -> "Lua Console".
+Inside the Lua Console window, navigate to "Script" -> "Open Script..." or select the open file icon on the toolbar. Open the file "LuaGhost Spyro the Dragon.lua". The script should now be running!
+The console window will sometimes pull focus away from the game window when reading and writing files, so you may want to minimize it while playing to stop it doing that.
+The first time you launch the script, it will open a prompt in the game window asking you to enter your name. The name you enter will be saved in any ghost files you create. It can be changed later from the script's menu. You can open the script menu at any time by pressing R3 on your controller (by default).
+#A Warning about Savestates
+I have not shared default savestates for the different routes. Savestates will be created automatically as you play through your route in segment recording mode. Because of limitations in PS1 on BizHawk, savestates cannot be loaded unless the core settings when you load the savestate match what the were when the savestate was created. Things like changing the controller configuration or memory cards will cause BizHawk to throw an error if you load an incompatible savestate. If LuaGhost tries to load an incompatible savestate, it will corrupt the current Lua Console, causing unexpected behaviour until the console is closed and reopened. There is no indication in the console window when it has been corrupted in this way, so it is a difficult problem for users to diagnose on their own.
 #Spyro Palettes
 There is a setting in the script to change Spyro's appearance. Only Spyro's palette data can be overwritten at this time. So, swapping out the purple for a different color is possible, but giving Spyro stripes or spots is not possible. The script will look for .ppm files in the "Spyro Palettes" directory. To work, the files must be formatted in ASCII format, not binary (raw).
 GIMP will ask which mode you want if you export an image in .ppm format and you can select the ASCII format. From my testing, MS Paint will use binary format (the wrong one) without asking. I haven't tested any other programs for compatibility.
