@@ -650,7 +650,10 @@ function detectSegmentEvents()
 	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" then
 		
 		local folder = "Savestates"
-		if not file.exists(folder) then file.createFolder(folder) end
+		if not file.exists(folder) then
+			file.createFolder(folder) 
+			showIOWarning()
+		end
 		
 		local f = file.combinePath(folder, displayType .. " - " .. recordingMode .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
@@ -1804,7 +1807,10 @@ action_data = {
 			if segment_readyToUpdate and segment_lastRecording ~= nil then
 				local g = segment_lastRecording
 				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], routeFolderNames[g.category])
-				if not file.exists(folder) then file.createFolder(folder) end
+				if not file.exists(folder) then
+					file.createFolder(folder)
+					showIOWarning()
+				end
 				
 				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
 				saveRecordingToFile(file.combinePath(folder, f), segment_lastRecording)
@@ -3787,6 +3793,7 @@ function segment_saveCollectionSettings(c)
 
 	if not file.exists(file.combinePath("Ghosts", c)) then
 		file.createFolder(file.combinePath("Ghosts", c))
+		showIOWarning()
 	end
 	
 	local f = assert(io.open(segment_collectionSettings_getFileName(c), "w"))
@@ -3830,7 +3837,10 @@ function segment_exportGolds()
 			local goldGhost = ((collection_table[playerName] or {}).lengthSort or {})[1]
 			if goldGhost then
 				local targetPath = file.combinePath({"Ghosts", collectionFolder, routeFolderNames[category]})
-				if not file.exists(targetPath) then file.createFolder(targetPath) end
+				if not file.exists(targetPath) then
+					file.createFolder(targetPath)
+					showIOWarning()
+				end
 				file.copy(goldGhost.filePath, file.combinePath({targetPath, file.nameFromPath(goldGhost.filePath)}))
 			end
 		end
