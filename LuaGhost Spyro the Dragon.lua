@@ -2104,7 +2104,7 @@ menu_data = {
 					self.display = menu_data["recording mode"].title .. ": " .. tostring(recordingModePrettyNames[recordingMode])
 				end,
 			},
-			{action = "changeMenu", target = "route select", description = "Select the route to work on.",
+			{action = "changeMenu", target = "route select", description = "Select the route to work on. Each route has its own savestates and ghosts.",
 				updateDisplay = function(self)
 					self.display = menu_data["route select"].title .. ": " .. tostring(routePrettyNames[currentRoute])
 				end,
@@ -2112,20 +2112,20 @@ menu_data = {
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
 			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route."},
 			{action = "changeMenu", target = "warp settings", description = "Change settings that are applied when loading the current segment."},
-			{action = "changeMenu", target = "display", description = nil},
-			{action = "changeMenu", target = "segment mode settings", description = nil},
-			{action = "changeMenu", target = "keyboard input", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
+			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
+			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
+			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
 		},
 	},
 	["recording mode"] = {
 		menuType = "selectSetting",
 		targetVariable = "recordingMode",
 		title = "Recording Mode",
-		description = nil,
+		description = "Decide whether ghosts are created automatically or manually.",
 		items = {
-			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and run against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
-			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a ghost of your fastest time on that segment will automatically start. New savepoints are created automatically as you navigate the game."},
-			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
+			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and practice against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
+			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a comparison ghost will automatically start. New savestates are created automatically as you complete your route."},
+			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented. You can still do a full run in segment mode and segment ghosts will play automatically as you move between levels.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
 		},
 		openFunction = function(self)
 			self.originalValue = getGlobalVariable(self.targetVariable)
@@ -2144,7 +2144,7 @@ menu_data = {
 		menuType = "selectSetting",
 		targetVariable = "currentRoute",
 		title = "Current Route",
-		description = nil,
+		description = "Select the route to practice. Each route creates a separate set of savestates and ghost recordings. If you do a complete run from the start of the game in segment recording mode, it will create all the savestates for that route automatically.",
 		items = {
 			{action = "selectSetting", setting = "any", display = routePrettyNames["any"], description = ""},
 			{action = "selectSetting", setting = "120", display = routePrettyNames["120"], description = ""},
@@ -2226,7 +2226,7 @@ menu_data = {
 	["warp settings"] = {
 		menuType = "normal",
 		title = "Warp Settings",
-		description = "These settings are applied when you load a segment from the warp menu or reset a segment, but not when moving naturally between segments.",
+		description = "These settings are applied when you load a segment from the warp menu or reset a segment, but not when moving naturally between segments. If you've changed Spyro's palette, this will be reapplied when you load savestates. If you've changed the music volume in the game's settings, this change will also be applied as savestates are loaded.",
 		items = {
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "health"}, prettyName = "Health", minValue = -1, maxValue = 3, displayFunction = function(value) local lut ={[-1] = "No Change", [0] = "Sparxless", [1] = "Green Sparx", [2] = "Blue Sparx", [3] = "Gold Sparx"} return lut[value] end, description = nil},
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "lives"}, prettyName = "Lives", minValue = -1, maxValue = 99, displayFunction = function(value) if value == -1 then return "No Change" end return value end, description = nil},
@@ -2282,7 +2282,7 @@ menu_data = {
 		description = nil,
 		reservedDescriptionLines = 4,
 		items = {
-			{action = "changeMenu", target = "spyroSkin", description = nil, updateDisplay = function(self) self.display = "Spyro's Skin: " .. (currentPalette_name or "Original") end},
+			{action = "changeMenu", target = "spyroSkin", description = "Change Spyro's palette data.", updateDisplay = function(self) self.display = "Spyro's Skin: " .. (currentPalette_name or "Original") end},
 			{action = "onOffSetting", targetVariable = "showBonkCounter", prettyName = "Show Bonk Counter", description = "Counts how many times Spyro bonks. The counter resets when you load a save state or reset a segment."},
 			{action = "offRawSmoothSetting", targetVariable = "showSpeed", prettyName = "Show Speed", description = "The change in Spyro's position."},
 			{action = "offRawSmoothSetting", targetVariable = "showGroundSpeed", prettyName = "Show Ground Speed", description = "The change in Spyro's position, ignoring the vertical component."},
@@ -2291,7 +2291,7 @@ menu_data = {
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
-			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the gem counter update much faster."},
+			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the game's gem counter update much faster."},
 		},
 	},
 	["spyroSkin"] = {
@@ -2341,7 +2341,7 @@ menu_data = {
 				end,
 			},
 			{action = "onOffSetting", targetVariable = "segment_showSubSegmentGhosts", prettyName = "Show Sub-Segment Ghosts", description = "When you rescue a dragon, all visible ghosts will jump forward or backward to rescue it at the same time. This does not change the time deltas that are shown.",},
-			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment.",},
+			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment at the cost of increased memory usage.",},
 			{action = "onOffSetting", targetVariable = "segment_autoReloadFlightLevels", prettyName = "Auto-reload Flight Levels", description = "In segment recording mode, selecting \"Try Again\" from the in-game menu will reload the savepoint for that segment, so you will always practice the level from level entry and not level retry.",},
 			{action = "onOffSetting", targetVariable = "segment_autoSaveGhosts", prettyName = "Auto-save Ghosts", description = "Automatically save ghosts when ending a segment. This is not recommended because the script cannot tell if a segment was completed successfully. This may be useful for creating segment recordings from a TAS.",},
 		},
@@ -2883,7 +2883,7 @@ function menu_updateItem(menuItem)
 				menuItem.description = menuItem.originalDescription .. " "
 			end
 			if setting == "True Position" then menuItem.description = menuItem.description .. "\"True Position\" shows the most up-to-date information for the current frame." end
-			if setting == "Delayed" then menuItem.description = menuItem.description .. "\"Delayed\" delays the position by two frames to match the game's frame buffer." end
+			if setting == "Delayed" then menuItem.description = menuItem.description .. "\"Delayed\" delays the position by two rendered frames to match the game's frame buffer." end
 		elseif menuItem.action == "offOnAlwaysSetting" then
 			--Condition: This menuItem is an offTrueDelayed, used for rendering things with an option to show them even if they are not in the same level
 			local setting = "Off"
