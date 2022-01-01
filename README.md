@@ -1,1 +1,13 @@
-LuaGhost Spyro the Dragon
+#LuaGhost: Spyro the Dragon
+This script can be run through the Lua console in the [BizHawk emulator](http://tasvideos.org/BizHawk.html) to add ghost recording and playback functionality to the PlayStation 1 game Spyro the Dragon. It is intended for use as a practice or learning tool for speedrunning. Note that this is not intended to be used for leaderboard runs and I do not know of any real-time leaderboard that would consider the use of such a tool during runs to be legal.
+#Setup and Use
+The script is designed to work with BizHawk version 1.6.1. The emulator must be running the NTSC or PAL version of Spyro the Dragon. It is not compatible with the later Spyro games, only the first in the original trilogy.
+BizHawk has some graphics settings which may cause issues if configured incorrectly, so you'll want to check the settings in "PSX -> Options".
+- Resolution Management: Should be set to either "Mednafen Mode" or "Tweaked Mednafed Mode".
+- Drawing Area: Should be set to Full (0 to 239 on NTSC or 0 to 287 on PAL).
+- Horizontal Overscan Clipping: Should be set to either "None" or "Clip to Framebuffer".
+#Spyro Palettes
+There is a setting in the script to change Spyro's appearance. Only Spyro's palette data can be overwritten at this time. So, swapping out the purple for a different color is possible, but giving Spyro stripes or spots is not possible. The script will look for .ppm files in the "Spyro Palettes" directory. To work, the files must be formatted in ASCII format, not binary (raw).
+GIMP will ask which mode you want if you export an image in .ppm format and you can select the ASCII format. From my testing, MS Paint will use binary format (the wrong one) without asking. I haven't tested any other programs for compatibility.
+If you want to try and create palettes, look for "Default Spyro Palette.ppm" in the main directory for Spyro's default palette. There is also a "Default Spyro Palette.xcf" file, which is a GIMP file with the palette data split onto different layers and labeled for easier editing. I've listed the colors in the order they exists in the game's ram and it is not intuitive, so I highly recommend referring to the .xcf file.
+The PS1 uses 5 bit color (values ranging from 0-31). Modern image editors will typically produce images with 8 or more bits per channel. When loaded, these colors will be rounded to the nearest 5 bit equivalent, losing some detail. Hue can be distorted quite a lot for very dark colors.
