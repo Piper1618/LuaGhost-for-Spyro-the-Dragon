@@ -1871,7 +1871,15 @@ if true then
 	-- Menu options for the player name entry. This is
 	-- separate from the rest of the menu data because it
 	-- needs to be accessed in multiple places.
-	playerNameMenuOptions = {description = "Please enter a name. This will be saved in any ghost recordings you create. This can be changed later.", openFunction = function(self) self.keyboard_output = playerName if playerName == defaultPlayerName then self.keyboard_output = "" end end, doneFunction = function(self) self.keyboard_output = string.trim(self.keyboard_output) if self.keyboard_output ~= "" then playerName = self.keyboard_output segment_comparison_collection = playerName collections[playerName] = true menu_back() end end,}
+	playerNameMenuOptions = {description = "Please enter a name. This will be saved in any ghost recordings you create. This can be changed later.", openFunction = function(self) self.keyboard_output = playerName if playerName == defaultPlayerName then self.keyboard_output = "" end end,
+	doneFunction = function(self) 
+		self.keyboard_output = string.trim(self.keyboard_output)
+		if (self.keyboard_output or "") ~= "" then
+			playerName = self.keyboard_output
+			segment_comparison_collection = playerName collections[playerName] = true
+		end
+		menu_back()
+	end,}
 end
 
 -- This function is used to open the menu when it is closed
@@ -2615,10 +2623,15 @@ menu_data = {
 			else
 				local key = self.keys[1]
 				if menu_currentData.keyboard_caps > 0 and #(self.keys) > 1 then key = self.keys[2] end
-				if key == "space" then key = " " end
+				if key == "space" then
+					key = " "
+					if menu_currentData.keyboard_caps == 0 then
+						menu_currentData.keyboard_caps = 1
+					end
+				end
 				menu_currentData.keyboard_output = menu_currentData.keyboard_output .. key
 				
-				if menu_currentData.keyboard_caps == 1 then menu_currentData.keyboard_caps = 0 end
+				if menu_currentData.keyboard_caps == 1 and key ~= " " then menu_currentData.keyboard_caps = 0 end
 			end
 		end,
 	},
@@ -3035,7 +3048,7 @@ function menu_draw_keyboard()
 	local selected_frontColor = "pink"
 	local selected_backColor = "purple"
 	
-	local outputString = "Name: " .. menu_currentData.keyboard_output
+	local outputString = "Name: " .. (menu_currentData.keyboard_output or "")
 	if menu_cursorFlash then outputString = outputString .. [[_]] end
 	
 	gui.drawText(x, y, outputString, "white", "black", 22)
