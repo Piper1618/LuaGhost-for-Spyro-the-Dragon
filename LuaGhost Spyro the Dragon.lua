@@ -3266,7 +3266,7 @@ function draw_updateSegment()
 		end
 		
 		--print button to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
-		if segment_readyToUpdate and (segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) then
+		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) then
 			local updateButton = ""
 			if menu_leftAction() == "updateSegment" then updateButton = "Right Stick: Left" end
 			if menu_rightAction() == "updateSegment" then updateButton = "Right Stick: Right" end
@@ -3682,7 +3682,7 @@ function segment_halt()
 		segment_lastRecording = segment_recording
 		segment_recording = nil
 		
-		segment_lastRecording.enforceGemRequirement = currentRoute == "120" and segment_lastRecording.segment[1] == "Level" and segment_lastRecording.segment[3] == "Entry"
+		segment_lastRecording.enforceGemRequirement = currentRoute == "120" and segment_lastRecording.segment[1] == "Level" and (segment_lastRecording.segment[3] == "Entry" or segment_lastRecording.segment[3] == "Balloon")
 		
 		local level = segment_lastRecording.segment[2]
 		if segment_lastRecording.segment[3] ~= "Entry" then level = level - level % 10 end
