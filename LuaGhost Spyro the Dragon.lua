@@ -1419,19 +1419,19 @@ if true then -- Settings and defaults for the player inputs
 	controls_default = {
 		manual = {
 			RS_left = "openWarpMenu",
-			RS_right = "playGhost",
+			RS_right = "loadSavepoint",
 			RS_up = "updateGhost",
 			RS_down = "clearSavepoint",
 			R3 = "openMenu",
-			L3 = "loadSavepoint",
+			L3 = "",
 		},
 		segment = {
 			RS_left = "openWarpMenu",
-			RS_right = "",
+			RS_right = "reloadSegment",
 			RS_up = "updateSegment",
 			RS_down = "",
 			R3 = "openMenu",
-			L3 = "reloadSegment",
+			L3 = "",
 		},
 	}
 	
