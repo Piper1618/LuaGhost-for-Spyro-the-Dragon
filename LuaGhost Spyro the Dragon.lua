@@ -4690,7 +4690,7 @@ spyroSkin.palettes_iveGotSomeThingsToDo = {
 	{0x40602, 0x4061E},
 }
 
-spyroSkin.palettes_iveGotSomeThingsToDo_PAL = {
+spyroSkin.palettes_iveGotSomeThingsToDo_PAL = {--Confirmed on English. Known to be wrong on Spanish. Yup.
 	{0xC47E2, 0xC47FE}, -- Palette #1
 	{0xC87C2, 0xC87DE}, -- Palette #2
 	{0xC87E2, 0xC87FE}, -- Palette #3
@@ -5348,7 +5348,7 @@ if true then
 	event.unregisterbyname("onLoadSavestate")
 	event.onloadstate(onLoadSavestate, "onLoadSavestate")
 
-	currentLevel = memory.read_u32_le(0x0758B4 + m[3])
+	currentLevel = memory.read_u32_le(0x07596C + m[5])
 	lastLevel = currentLevel - (currentLevel % 10)
 	currentSegment = {"Level", currentLevel, "Entry"}
 	if currentLevel % 10 == 0 then
