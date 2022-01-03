@@ -56,7 +56,8 @@ function file.copy(old, new)
 end
 
 function file.exists(path)
-	return os.rename(path, path) == true
+	local f=io.open(path,"r")
+	if f~=nil then io.close(f) return true else return false end
 end
 
 function file.createFolder(path)

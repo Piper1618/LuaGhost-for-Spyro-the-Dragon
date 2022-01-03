@@ -6,11 +6,15 @@
 ----
 -------------------------
 
-version = "1.2.1"
+-- Stop the program from advancing if it is started while no rom is loaded
+if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
 
---Stop the program from advancing if it is started while no rom is loaded
-if emu.getsystemid() ~= "PSX" then while true do emu.frameadvance() end end
 
+-- Workaround for io.popen no longer being available in BizHawk.
+function io.popen(s)
+	os.execute(s .. " > popen.txt")
+	return io.input("popen.txt")
+end
 
 -------------------------
 -- Load external libraries/modules
@@ -3757,7 +3761,7 @@ function segment_saveCollectionSettings(c)
 	end
 	
 	local f = assert(io.open(segment_collectionSettings_getFileName(c), "w"))
-	f:write("Collection Settings", "\n", "Version: 1", "\n")
+	f:write("Collection Settings", "\n", "version: 1", "\n")
 	
 	f:write("showAll: ", (settings.showAll or false) and "True" or "False", "\n")
 	f:write("showRecent: ", tostring(settings.showRecent or 0), "\n")
