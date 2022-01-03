@@ -1993,7 +1993,7 @@ function menu_close()
 	end
 	
 	menu_state = nil
-	menu_showInputs = 30 * 8
+	menu_showInputs = framerate / 2 * 20
 	
 	requireMainMenuAction()
 	
@@ -5384,7 +5384,7 @@ if true then
 	populateFileList()
 	segment_loadAllCollectionSettings()
 	
-	menu_showInputs = 30 * 8
+	menu_showInputs = framerate / 2 * 30
 	requireMainMenuAction()
 
 	--For first-time users. Prompt them to enter a name.
