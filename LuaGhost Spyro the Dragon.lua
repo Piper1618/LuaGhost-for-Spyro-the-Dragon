@@ -530,13 +530,17 @@ function detectSegmentEvents()
 
 	if inTitleScreen then return end
 	
-	--Detect retry in Flight Level
-	if gameState == 0 and lastGameState == 7 and recordingMode == "segment" and segment_autoReloadFlightLevels then
+	-- Detect retry in Flight Level
+	if gameState == 0 and lastGameState == 7 and recordingMode == "segment" then
 		showDebug("Detected retry in flight level")
-		handleAction("reloadSegment")
+		if not segment_shownFlightLevelRestartTip then
+			segment_shownFlightLevelRestartTip = true
+			local reloadInput = getInputForAction("reloadSegment")
+			showMessage(conditional(reloadInput == "", "Tip: the ghost won't restart until you restart the segment.", "Tip: the ghost won't restart until you restart the segment with " .. reloadInput))
+		end
 	end
 	
-	--Detect dragon cutscene
+	-- Detect dragon cutscene
 	segment_dragonSplitThisFrame = false
 	if gameState == 0 and lastGameState == 8 then
 		segment_dragonSplitArmed = true
@@ -1228,7 +1232,6 @@ function settings_save()
 	f:write("currentRoute: ", currentRoute, "\n")
 	f:write("showDebugMessages: ", showDebugMessages and "True" or "False", "\n")
 	f:write("timeFormat_frames: ", timeFormat_frames and "True" or "False", "\n")
-	f:write("segment_autoReloadFlightLevels: ", segment_autoReloadFlightLevels and "True" or "False", "\n")
 	f:write("segment_comparison_collection: ", segment_comparison_collection, "\n")
 	f:write("segment_comparison_target: ", segment_comparison_target, "\n")
 	f:write("segment_comparison_useColor: ", segment_comparison_useColor and "True" or "False", "\n")
@@ -1300,7 +1303,6 @@ function settings_load()
 		tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
 		tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
 		tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
-		tryParseSetting(t, "segment_autoReloadFlightLevels: ", "segment_autoReloadFlightLevels", "bool")
 		tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
 		tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
 		tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
@@ -1623,6 +1625,20 @@ function handleUserInput()
 			menu_close()
 		end		
 	end
+end
+
+function getInputForAction(action)
+	if type(action) ~= "" then return "" end
+
+	local input = ""
+	if menu_leftAction() == action then input = "Right Stick: Left" end
+	if menu_rightAction() == action then input = "Right Stick: Right" end
+	if menu_upAction() == action then input = "Right Stick: Up" end
+	if menu_downAction() == action then input = "Right Stick: Down" end
+	if menu_R3Action() == action then input = "R3" end
+	if menu_L3Action() == action then input = "L3" end
+	
+	return input
 end
 
 --These are the actions the player can use while outside
@@ -2352,7 +2368,6 @@ menu_data = {
 			},
 			{action = "onOffSetting", targetVariable = "segment_showSubSegmentGhosts", prettyName = "Show Sub-Segment Ghosts", description = "When you rescue a dragon, all visible ghosts will jump forward or backward to rescue it at the same time. This does not change the time deltas that are shown.",},
 			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment at the cost of increased memory usage.",},
-			{action = "onOffSetting", targetVariable = "segment_autoReloadFlightLevels", prettyName = "Auto-reload Flight Levels", description = "In segment recording mode, selecting \"Try Again\" from the in-game menu will reload the savepoint for that segment, so you will always practice the level from level entry and not level retry.",},
 			{action = "onOffSetting", targetVariable = "segment_autoSaveGhosts", prettyName = "Auto-save Ghosts", description = "Automatically save ghosts when ending a segment. This is not recommended because the script cannot tell if a segment was completed successfully. This may be useful for creating segment recordings from a TAS.",},
 		},
 	},
@@ -3256,17 +3271,12 @@ function draw_updateSegment()
 	
 	if segment_lastRecording.flightLevel == nil or segment_lastRecording.flightLevel then
 	
-		--Calculate and print segment time
+		-- Calculate and print segment time
 		local endTime = getFormattedTime(segment_lastRecording.length)
-		--local sign = 1-- sign is +1 or -1 depending on whether we are faster or slower than the old segment time
-		--if endTime < 0 then sign = -1 end
-		--local seconds = endTime * sign;
-		--local frames = seconds % 60
-		--seconds = math.floor(seconds / 60) * sign
 		
 		gui.drawText(x, y+dy, "Final Time: " .. endTime, "white", "black")
 
-		--Calculate and print segment delta
+		-- Calculate and print segment delta
 		if menu_segmentUpdate_delta ~= nil then
 
 			local s, c = getFormattedTime(menu_segmentUpdate_delta, true, menu_segmentUpdate_forceFrames)--This should not be calculated here. 
@@ -3275,15 +3285,9 @@ function draw_updateSegment()
 			gui.drawText(x, y+2*dy, s, c, "black")
 		end
 		
-		--print button to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
+		-- Print input to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
 		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) then
-			local updateButton = ""
-			if menu_leftAction() == "updateSegment" then updateButton = "Right Stick: Left" end
-			if menu_rightAction() == "updateSegment" then updateButton = "Right Stick: Right" end
-			if menu_upAction() == "updateSegment" then updateButton = "Right Stick: Up" end
-			if menu_downAction() == "updateSegment" then updateButton = "Right Stick: Down" end
-			if menu_R3Action() == "updateSegment" then updateButton = "R3" end
-			if menu_L3Action() == "updateSegment" then updateButton = "L3" end
+			local updateButton = getInputForAction("updateSegment")
 			if updateButton ~= "" then
 				gui.drawText(x, y+3*dy, "Save new ghost with " .. updateButton, "white", "black")
 			end
@@ -3514,7 +3518,6 @@ if true then -- Segment Mode Settings and Variables
 	segment_lastRecording_gemTotal = 1	
 	segment_readyToUpdate = false
 	
-	segment_autoReloadFlightLevels = false -- A setting that automatically reloads a flight level's savestate if the player selects "try again" from the menu.
 	segment_autoSaveGhosts = false -- A setting to automatically save all ghosts without waiting for the player to confirm they should be saved. Only intended for use cases such as creating a ghost from a tas.
 	
 	
@@ -3528,6 +3531,8 @@ if true then -- Segment Mode Settings and Variables
 	segment_dragonSplitArmed = false
 	
 	segment_showSubSegmentGhosts = false
+	
+	segment_shownFlightLevelRestartTip = false
 end
 
 function segment_clearData()
