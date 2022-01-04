@@ -9,13 +9,16 @@
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
 
-
 -- Workaround for io.popen no longer being available in BizHawk.
 function io.popen(s)
 	local seperator = package.config:sub(1, 1)
 	os.execute(s .. " > data" .. seperator .. "popen.txt")
 	return io.input("data" .. seperator .. "popen.txt")
 end
+
+-- Ensure the data folder exists
+os.execute("mkdir data")
+
 
 -------------------------
 -- Load external libraries/modules
@@ -47,11 +50,6 @@ if true then
 	--Return the path to its default state, in case
 	--anything else needs it to be that way.
 	package.path = oldPath
-end
-
--- Ensure the data folder exists
-if not file.exists("data") then
-	file.makedir("data")
 end
 
 -------------------------

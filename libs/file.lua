@@ -2,6 +2,17 @@ local file = {}
 
 file.seperator = package.config:sub(1, 1)
 
+-- Compatibility check: os.rename returns different values
+-- to indicate success or failure on different versions of
+-- the lua implementation used in BizHawk. Older versions
+-- of BizHawk were updated with the new lua, so we can't
+-- trust the BizHawk version to tell us which version of
+-- lua we're working with. This code renames a known file
+-- to find out what gets returned by a successful rename.
+os.execute("echo check > \"data" .. file.seperator .. "luaVersionCheck.txt\"")
+file.renameSuccessCondition = os.rename("data" .. file.seperator .. "luaVersionCheck.txt", "data" .. file.seperator .. "luaVersionCheck.txt")
+
+
 function file.combinePath(a, b, c, d, e)
 	local seperator = file.seperator
 	if type(a) == "string" then
@@ -55,9 +66,12 @@ function file.copy(old, new)
 	f:close()
 end
 
+function file.rename(original, destination)
+	return os.rename(original, destination) == file.renameSuccessCondition
+end
+
 function file.exists(path)
-	local f=io.open(path,"r")
-	if f~=nil then io.close(f) return true else return false end
+	return file.rename(path, path)
 end
 
 function file.createFolder(path)
