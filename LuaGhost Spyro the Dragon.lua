@@ -205,8 +205,6 @@ if true then
 
 	menu_showInputs = 0
 	
-	showIOWarning_shouldShow = false
-	
 	-------------------------
 	-- Gameplay changes
 	-------------------------
@@ -611,7 +609,6 @@ function detectSegmentEvents()
 		local folder = "Savestates"
 		if not file.exists(folder) then
 			file.createFolder(folder) 
-			showIOWarning()
 		end
 		
 		local f = file.combinePath(folder, displayType .. " - " .. recordingMode .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
@@ -1780,7 +1777,6 @@ action_data = {
 				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], routeFolderNames[g.category])
 				if not file.exists(folder) then
 					file.createFolder(folder)
-					showIOWarning()
 				end
 				
 				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
@@ -2340,7 +2336,6 @@ menu_data = {
 				end
 			end
 			
-			showIOWarning()
 		end,
 		closeFunction = function(self)
 			spyroSkin.applyPalette(currentPalette)
@@ -3744,6 +3739,12 @@ function segment_restart(targetSegment)
 		
 		--load savestate
 		saveStateRequested = true
+		requestedState = targetFile
+		
+		local f = assert(io.open(file.combinePath("data", "requestedState.txt"), "w+"))
+		f:write(targetFile)
+		f:close()
+		
 		savestate.load(targetFile)
 		return true
 	else
@@ -3766,7 +3767,6 @@ function segment_saveCollectionSettings(c)
 
 	if not file.exists(file.combinePath("Ghosts", c)) then
 		file.createFolder(file.combinePath("Ghosts", c))
-		showIOWarning()
 	end
 	
 	local f = assert(io.open(segment_collectionSettings_getFileName(c), "w"))
@@ -3812,7 +3812,6 @@ function segment_exportGolds()
 				local targetPath = file.combinePath({"Ghosts", collectionFolder, routeFolderNames[category]})
 				if not file.exists(targetPath) then
 					file.createFolder(targetPath)
-					showIOWarning()
 				end
 				file.copy(goldGhost.filePath, file.combinePath({targetPath, file.nameFromPath(goldGhost.filePath)}))
 			end
@@ -3995,7 +3994,6 @@ function populateFileList()
 		setGlobalVariable({"savestateData", bizstring.trim(fileParts[2]), bizstring.trim(fileParts[3]), bizstring.trim(fileParts[4])}, fullPath)
 	end)
 	
-	showIOWarning()
 end
 
 function addNewGhostMeta(ghostMeta)
@@ -5313,18 +5311,15 @@ function menu_populateSegments()
 	--]]
 end
 
-function showIOWarning()
-	if showIOWarning_shouldShow then
-		showIOWarning_shouldShow = false
-		print("\n\n\nNOTICE: The Bizhawk Lua window likes to pull focus away from the game window when searching for files. Minimizing this window will stop it doing that and the script will still work.")
-	end
-end
-
 -------------------------
 -- Events
 -------------------------
 
 function onLoadSavestate()
+	
+	requestedState = nil
+	os.remove(file.combinePath("data", "requestedState.txt"))
+
 	if not saveStateRequested then
 		tryRunGlobalFunction("clearAllRecordingData")
 	else
@@ -5356,6 +5351,7 @@ end
 -------------------------
 
 if true then
+	
 	math.randomseed(os.time())
 	
 	event.unregisterbyname("onLoadSavestate")
@@ -5384,13 +5380,65 @@ if true then
 	
 	menu_showInputs = framerate / 2 * 30
 	requireMainMenuAction()
+	
+	print([[
+
+
+Welcome to LuaGhost for Spyro the Dragon!
+
+This window likes to pull focus away from the game window when reading and writing files. Minimizing this window should stop it doing that.
+
+If LuaGhost ever crashes while loading a savestate, you'll need to close and reopen this window before LuaGhost will work again. Just refreshing or toggling the script might not work.
+]])
+
+	local menuInput = getInputForAction("openMenu")
+	if menuInput ~= "" then
+		print("Open LuaGhost's menu with: " .. menuInput .. "\n")
+	end
 
 	--For first-time users. Prompt them to enter a name.
 	if playerName == defaultPlayerName then
 		menu_open("keyboard input", playerNameMenuOptions)
 	end
 	
-	showIOWarning_shouldShow = true
+	-- requestedState is set to the filename of a savestate
+	-- before attempting to load that state. This name is
+	-- also written to data\requestedState.txt. Both
+	-- requestedState and the file are erased by
+	-- onLoadSavestate(). If the file exists during this
+	-- startup routine, then the script must have crashed
+	-- during the load, meaning the savestate file might be
+	-- corrupt. If requestedState is defined here, then the
+	-- user has not restarted the lua console since the
+	-- crash occurred. When crashes happen on savestate
+	-- loads, it leaves the lua console in a corrupted
+	-- state that will crash on loading ANY savestate (even
+	-- ones that should work fine) until the user closes
+	-- and restarts the console. Here, we should prompt the
+	-- user to delete the corrupted file and restart the
+	-- console if needed.
+	local restartRequired = false
+	if requestedState then
+		restartRequired = true
+	end
+	if file.exists(file.combinePath("data", "requestedState.txt")) then
+		local f = assert(io.open(file.combinePath("data", "requestedState.txt"), "r"))
+		requestedState = f:read()
+		f:close()
+		os.remove(file.combinePath("data", "requestedState.txt"))
+	end
+	if requestedState then
+		gui.drawText(28, 15, "Error: See the lua console for details.", "white", "black")
+		print("\n\n\nNOTICE\nIt looks like LuaGhost crashed while loading the following savestate:\n\n" .. requestedState .. "\n\nThis can happen if specific emulator settings have changed since the savestate was created. You'll either need to delete the savestate file to let LuaGhosts recreate it with your new settings or revert any recent changes you've made to emulator settings. The settings that can cause this problem are the ones in \"PSX\" -> \"Controller / Memcard Configuration\".\n\n")
+		if restartRequired then
+			print("\nYou'll also need to close and reopen this window before LuaGhost will run.")
+		else
+			requestedState = nil
+		end
+		
+		-- Close the script
+		return
+	end
 end
 
 -------------------------
