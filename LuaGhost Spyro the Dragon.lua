@@ -1623,7 +1623,7 @@ function handleUserInput()
 end
 
 function getInputForAction(action)
-	if type(action) ~= "" then return "" end
+	if type(action) ~= "string" then return "" end
 
 	local input = ""
 	if menu_leftAction() == action then input = "Right Stick: Left" end
@@ -5393,7 +5393,7 @@ If LuaGhost ever crashes while loading a savestate, you'll need to close and reo
 
 	local menuInput = getInputForAction("openMenu")
 	if menuInput ~= "" then
-		print("Open LuaGhost's menu with: " .. menuInput .. "\n")
+		print("Open LuaGhost's in-game menu with: " .. menuInput .. "\n")
 	end
 
 	--For first-time users. Prompt them to enter a name.
