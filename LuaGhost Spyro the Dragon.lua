@@ -4176,14 +4176,14 @@ function Ghost:updateRecording()
 		local totalError = math.sqrt(xError * xError + yError * yError + zError * zError)
 		--gui.drawText(100, 100, tostring(totalError), "white", "black")
 				
-		if totalError > 150 then
+		if totalError > 100 then
 			newKeyframe = true
 		end
 		
 		local dirError = math.abs(spyroDirection - (self.keyframes[targetKeyframe - 1][3] + dirSpeed * deltaTime))
 		if dirError > _pi then dirError = _tau - dirError end
 		
-		if dirError > 0.2 then
+		if dirError > 0.15 then
 			newKeyframe = true
 		end
 		
