@@ -4146,7 +4146,7 @@ function Ghost:updateRecording()
 		newKeyframe = true
 	else
 		--Create keyframe if too much time has passed
-		if self.keyframes[targetKeyframe][1] - self.keyframes[targetKeyframe - 1][1] > 60 then
+		if self.keyframes[targetKeyframe][1] - self.keyframes[targetKeyframe - 1][1] > framerate then
 			newKeyframe = true
 		end
 		
@@ -4181,7 +4181,7 @@ function Ghost:updateRecording()
 		end
 		
 		local dirError = math.abs(spyroDirection - (self.keyframes[targetKeyframe - 1][3] + dirSpeed * deltaTime))
-		if dirError > 3.1 then dirError = _tau - dirError end
+		if dirError > _pi then dirError = _tau - dirError end
 		
 		if dirError > 0.2 then
 			newKeyframe = true
@@ -4189,7 +4189,7 @@ function Ghost:updateRecording()
 		
 		--Create keyframe if our angle has changed too much
 		local directionChange = math.abs(spyroDirection - self.keyframes[targetKeyframe - 1][3])
-		if directionChange > 3.1 then directionChange = _tau - directionChange end
+		if directionChange > _pi then directionChange = _tau - directionChange end
 		if directionChange > 2 then
 			newKeyframe = true
 		end
@@ -4228,9 +4228,9 @@ function Ghost:updateRecording()
 	end
 	
 	local newLevel = false
-	--Detect entry into loading screens
-	if loadingState > -1 and lastLoadingState == -1 then
-		showDebug("Detected level loading state")
+	--Detect level change
+	if lastLevel ~= currentLevel then
+		showDebug("Detected level change")
 		newLevel = true
 		newSegment = true
 	end
