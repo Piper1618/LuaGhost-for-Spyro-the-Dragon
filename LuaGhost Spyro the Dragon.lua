@@ -4077,6 +4077,10 @@ function Ghost.startNewRecording()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
 	
+	newRecording.state1 = {}
+	newRecording.state2 = {}
+	newRecording.state3 = {}
+	
 	newRecording.uid = bizstring.replace(string.format("%04X%03X%X", math.random(2 ^ 16) - 1, Ghost.counter, os.time()) .. tostring(playerName), " ", "")
 	Ghost.counter = Ghost.counter + 1
 	
@@ -4190,6 +4194,14 @@ function Ghost:updateRecording()
 			newKeyframe = true
 		end
 		
+	end
+	
+	--Create keyframes when Spyro starts and stops moving
+	self.state3 = self.state2
+	self.state2 = self.state1
+	self.state1 = {spyroX, spyroY, spyroZ, spyroDirection}
+	if table.isSimilar(self.state1, self.state2) ~= table.isSimilar(self.state2, self.state3) then
+		newKeyframe = true
 	end
 	
 	--Create keyframe on button events
