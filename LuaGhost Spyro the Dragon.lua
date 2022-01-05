@@ -4205,7 +4205,7 @@ function Ghost:updateRecording()
 	end
 	
 	--Create keyframe on button events
-	if inputs.square.press or inputs.square.release or inputs.X.press then
+	if (inputs.square.press or inputs.square.release or inputs.X.press) and (spyroControl == 0 and gameState == 0) then
 		newKeyframe = true
 	end
 	
