@@ -4229,10 +4229,19 @@ function Ghost:updateRecording()
 		animationChange = true
 	end
 	
+	if Ghost.noCompression then
+		newKeyframe = true
+	end
+	
 	if newKeyframe then
 		targetKeyframe = targetKeyframe + 1
 		--gui.drawText(100, 120, "Keyframe!", "white", "black")
 		--keyframeHit = keyframeHit + 1
+
+	end
+	
+	if Ghost.showKeyframes then
+		gui.drawPie(70, 30, 60, 34, 0, 360, 0, conditional(newKeyframe, 0xFFFF0000, 0xFFE0E0E0))
 	end
 
 	--keyframeTotal = keyframeTotal + 1
