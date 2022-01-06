@@ -5407,7 +5407,8 @@ if true then
 	print("\n\n\nWelcome to LuaGhost for Spyro the Dragon!\n")
 	
 	print("LuaGhost version: " .. _LuaGhostVersion)
-	print("BizHawk version: " .. client.getversion() .. " (" .. _VERSION .. ")\n")
+	print("BizHawk version: " .. client.getversion() .. " (" .. _VERSION .. ")")
+	print("Game version: " .. gameinfo.getromname() .. "\n")
 	
 	print("This window likes to pull focus away from the game window when reading and writing files. Minimizing this window should stop it doing that.\n\nIf LuaGhost ever crashes while loading a savestate, you'll need to close and reopen this window before LuaGhost will work again. Just refreshing or toggling the script might not work.\n")
 
