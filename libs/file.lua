@@ -2,13 +2,10 @@ local file = {}
 
 file.seperator = package.config:sub(1, 1)
 
--- Compatibility check: os.rename returns different values
--- to indicate success or failure on different versions of
--- the lua implementation used in BizHawk. Older versions
--- of BizHawk were updated with the new lua, so we can't
--- trust the BizHawk version to tell us which version of
--- lua we're working with. This code renames a known file
--- to find out what gets returned by a successful rename.
+-- Compatibility check: I've had trouble with the return
+-- from os.rename being inconsistent. I don't know if it's
+-- still a problem, but I'm checking by renaming a known
+-- file to be sure.
 os.execute("echo check > \"data" .. file.seperator .. "luaVersionCheck.txt\"")
 file.renameSuccessCondition = os.rename("data" .. file.seperator .. "luaVersionCheck.txt", "data" .. file.seperator .. "luaVersionCheck.txt")
 

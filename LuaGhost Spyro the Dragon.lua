@@ -11,7 +11,7 @@ _LuaGhostVersion = "0.1"
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
 
--- Workaround for io.popen no longer being available in BizHawk.
+-- I've had trouble with io.popen not always working, so I'm re-implementing it using os.execute
 function io.popen(s)
 	local seperator = package.config:sub(1, 1)
 	os.execute(s .. " > data" .. seperator .. "popen.txt")
