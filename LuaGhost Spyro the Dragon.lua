@@ -6,6 +6,8 @@
 ----
 -------------------------
 
+_LuaGhostVersion = "0.1"
+
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
 
@@ -5402,15 +5404,12 @@ if true then
 	menu_showInputs = framerate / 2 * 30
 	requireMainMenuAction()
 	
-	print([[
-
-
-Welcome to LuaGhost for Spyro the Dragon!
-
-This window likes to pull focus away from the game window when reading and writing files. Minimizing this window should stop it doing that.
-
-If LuaGhost ever crashes while loading a savestate, you'll need to close and reopen this window before LuaGhost will work again. Just refreshing or toggling the script might not work.
-]])
+	print("\n\n\nWelcome to LuaGhost for Spyro the Dragon!\n")
+	
+	print("LuaGhost version: " .. _LuaGhostVersion)
+	print("BizHawk version: " .. client.getversion() .. " (" .. _VERSION .. ")\n")
+	
+	print("This window likes to pull focus away from the game window when reading and writing files. Minimizing this window should stop it doing that.\n\nIf LuaGhost ever crashes while loading a savestate, you'll need to close and reopen this window before LuaGhost will work again. Just refreshing or toggling the script might not work.\n")
 
 	local menuInput = getInputForAction("openMenu")
 	if menuInput ~= "" then
