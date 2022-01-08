@@ -2,7 +2,10 @@
 ---- 
 ---- LuaGhost: Spyro the Dragon
 ----
----- Piper 2021
+---- Copyright 2022 Piper
+----
+---- This software is licensed under GLPv3. See the
+---- accompanying LICENSE file for details.
 ----
 -------------------------
 
@@ -5433,8 +5436,9 @@ if true then
 	-- user has not restarted the lua console since the
 	-- crash occurred. When crashes happen on savestate
 	-- loads, it leaves the lua console in a corrupted
-	-- state that will crash on loading ANY savestate (even
-	-- ones that should work fine) until the user closes
+	-- state that may crash on loading ANY savestate (even
+	-- ones that should work fine) or may be entirely
+	-- unresponsive. It will only be fixed when the user closes
 	-- and restarts the console. Here, we should prompt the
 	-- user to delete the corrupted file and restart the
 	-- console if needed.
