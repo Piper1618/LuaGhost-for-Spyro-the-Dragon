@@ -1,68 +1,28 @@
 -------------------------
 ---- 
----- Ghost Spyro
+---- LuaGhost: Spyro the Dragon
 ----
----- Piper 2021
+---- Copyright 2022 Piper
 ----
----- For use with BizHawk 1.6.1 and Spyro the Dragon (USA)
-----
----- Designed with video settings as follows. Using
----- different Settings may cause overlayed graphics to
----- be displayed incorrectly. 
-----     PSX -> Options ->
-----         Resolution Management: Tweaked Mednafen Mode ("Mednafen Mode" should also work)
-----         Drawing Area: NTSC 0 to 239
-----         Horizontal Overscan Clipping: None ("Clip to Framebuffer" should also work)
-----
----- This project contains methods for drawing overlayed
----- graphics onto the game view at accurate world
----- coordinates. This is used to draw draw a recorded
----- ghost of Spyro's movement, for comparison. Useful for
----- developing and practicing speedrun tech or for
----- providing more immediate feedback on time losses and
----- gains during a speedrun. This is not intended to be
----- used for leaderboard runs and I do not know of any
----- real-time leaderboard that would consider the use of
----- such a tool to be legal.
-----
----- There is a setting to change Spyro's appearance. Only
----- Spyro's palette data can be overwritten at this time.
----- So, swapping out the purple for a different color is
----- possible, but giving Spyro stripes or spots is not.
----- The script will look for .ppm files in the
----- "Spyro Palettes" directory. To work, the files must be
----- formatted in ASCII format, not binary (raw). GIMP
----- will ask which mode you want if you export an image
----- in .ppm format. From my testing, MS Paint will use
----- binary format (the wrong one) without asking. I
----- haven't tested any other programs for compatibility.
----- If you want to try and create palettes, look for
----- "Default Spyro Palette.ppm" in the main directory for
----- Spyro's default palette. Inside the "Spyro Palettes"
----- directory, you should find a palette called
----- "zzz Test.ppm" which you can use in the game to see
----- which parts of the palette relate to which parts of
----- spyro's body. I've listed the colors in the order they
----- exists in the game's ram and it is not intuitive. The
----- PS1 uses 5 bit color (values ranging from 0-31).
----- Modern image editors will typically produce images
----- with 8 or more bits per channel. When loaded, these
----- colors will be rounded to the nearest 5 bit
----- equivalent, losing some detail. Hue can be distorted
----- quite a lot for very dark colors.
----- 
-----
-----
----- Written on Windows 10. File reading and writing will
----- probably need updating to work correctly on other
----- systems.
+---- This software is licensed under GLPv3. See the
+---- accompanying LICENSE file for details.
 ----
 -------------------------
 
-version = "1.2.1"
+_LuaGhostVersion = "1.0"
 
---Stop the program from advancing if it is started while no rom is loaded
-if emu.getsystemid() ~= "PSX" then while true do emu.frameadvance() end end
+-- Stop the program from advancing if it is started while no rom is loaded
+if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
+
+-- I've had trouble with io.popen not always working, so I'm re-implementing it using os.execute
+function io.popen(s)
+	local seperator = package.config:sub(1, 1)
+	os.execute(s .. " > data" .. seperator .. "popen.txt")
+	return io.input("data" .. seperator .. "popen.txt")
+end
+
+-- Ensure the data folder exists
+os.execute("mkdir data")
 
 
 -------------------------
@@ -249,8 +209,6 @@ if true then
 
 
 	menu_showInputs = 0
-	
-	showIOWarning_shouldShow = false
 	
 	-------------------------
 	-- Gameplay changes
@@ -573,13 +531,17 @@ function detectSegmentEvents()
 
 	if inTitleScreen then return end
 	
-	--Detect retry in Flight Level
-	if gameState == 0 and lastGameState == 7 and recordingMode == "segment" and segment_autoReloadFlightLevels then
+	-- Detect retry in Flight Level
+	if gameState == 0 and lastGameState == 7 and recordingMode == "segment" then
 		showDebug("Detected retry in flight level")
-		handleAction("reloadSegment")
+		if not segment_shownFlightLevelRestartTip then
+			segment_shownFlightLevelRestartTip = true
+			local reloadInput = getInputForAction("reloadSegment")
+			showMessage(conditional(reloadInput == "", "Tip: the ghost won't restart until you restart the segment.", "Tip: the ghost won't restart until you restart the segment with " .. reloadInput))
+		end
 	end
 	
-	--Detect dragon cutscene
+	-- Detect dragon cutscene
 	segment_dragonSplitThisFrame = false
 	if gameState == 0 and lastGameState == 8 then
 		segment_dragonSplitArmed = true
@@ -650,7 +612,9 @@ function detectSegmentEvents()
 	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" then
 		
 		local folder = "Savestates"
-		if not file.exists(folder) then file.createFolder(folder) end
+		if not file.exists(folder) then
+			file.createFolder(folder) 
+		end
 		
 		local f = file.combinePath(folder, displayType .. " - " .. recordingMode .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
@@ -1243,7 +1207,7 @@ end
 -------------------------
 
 if true then
-	settings_file = "settings.txt"
+	settings_file = file.combinePath("data", "settings.txt")
 	
 	defaultPlayerName = "Unknown"
 	playerName = defaultPlayerName
@@ -1268,7 +1232,6 @@ function settings_save()
 	f:write("currentRoute: ", currentRoute, "\n")
 	f:write("showDebugMessages: ", showDebugMessages and "True" or "False", "\n")
 	f:write("timeFormat_frames: ", timeFormat_frames and "True" or "False", "\n")
-	f:write("segment_autoReloadFlightLevels: ", segment_autoReloadFlightLevels and "True" or "False", "\n")
 	f:write("segment_comparison_collection: ", segment_comparison_collection, "\n")
 	f:write("segment_comparison_target: ", segment_comparison_target, "\n")
 	f:write("segment_comparison_useColor: ", segment_comparison_useColor and "True" or "False", "\n")
@@ -1340,7 +1303,6 @@ function settings_load()
 		tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
 		tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
 		tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
-		tryParseSetting(t, "segment_autoReloadFlightLevels: ", "segment_autoReloadFlightLevels", "bool")
 		tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
 		tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
 		tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
@@ -1469,19 +1431,19 @@ if true then -- Settings and defaults for the player inputs
 	controls_default = {
 		manual = {
 			RS_left = "openWarpMenu",
-			RS_right = "playGhost",
+			RS_right = "loadSavepoint",
 			RS_up = "updateGhost",
 			RS_down = "clearSavepoint",
 			R3 = "openMenu",
-			L3 = "loadSavepoint",
+			L3 = "",
 		},
 		segment = {
 			RS_left = "openWarpMenu",
-			RS_right = "",
+			RS_right = "reloadSegment",
 			RS_up = "updateSegment",
 			RS_down = "",
 			R3 = "openMenu",
-			L3 = "reloadSegment",
+			L3 = "",
 		},
 	}
 	
@@ -1665,6 +1627,20 @@ function handleUserInput()
 	end
 end
 
+function getInputForAction(action)
+	if type(action) ~= "string" then return "" end
+
+	local input = ""
+	if menu_leftAction() == action then input = "Right Stick: Left" end
+	if menu_rightAction() == action then input = "Right Stick: Right" end
+	if menu_upAction() == action then input = "Right Stick: Up" end
+	if menu_downAction() == action then input = "Right Stick: Down" end
+	if menu_R3Action() == action then input = "R3" end
+	if menu_L3Action() == action then input = "L3" end
+	
+	return input
+end
+
 --These are the actions the player can use while outside
 --the menu system.
 action_data = {
@@ -1804,7 +1780,9 @@ action_data = {
 			if segment_readyToUpdate and segment_lastRecording ~= nil then
 				local g = segment_lastRecording
 				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], routeFolderNames[g.category])
-				if not file.exists(folder) then file.createFolder(folder) end
+				if not file.exists(folder) then
+					file.createFolder(folder)
+				end
 				
 				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
 				saveRecordingToFile(file.combinePath(folder, f), segment_lastRecording)
@@ -1918,7 +1896,15 @@ if true then
 	-- Menu options for the player name entry. This is
 	-- separate from the rest of the menu data because it
 	-- needs to be accessed in multiple places.
-	playerNameMenuOptions = {description = "Please enter a name. This will be saved in any ghost recordings you create. This can be changed later.", openFunction = function(self) self.keyboard_output = playerName if playerName == defaultPlayerName then self.keyboard_output = "" end end, doneFunction = function(self) self.keyboard_output = string.trim(self.keyboard_output) if self.keyboard_output ~= "" then playerName = self.keyboard_output segment_comparison_collection = playerName collections[playerName] = true menu_back() end end,}
+	playerNameMenuOptions = {description = "Please enter a name. This will be saved in any ghost recordings you create. This can be changed later.", openFunction = function(self) self.keyboard_output = playerName if playerName == defaultPlayerName then self.keyboard_output = "" end end,
+	doneFunction = function(self) 
+		self.keyboard_output = string.trim(self.keyboard_output)
+		if (self.keyboard_output or "") ~= "" then
+			playerName = self.keyboard_output
+			segment_comparison_collection = playerName collections[playerName] = true
+		end
+		menu_back()
+	end,}
 end
 
 -- This function is used to open the menu when it is closed
@@ -2006,7 +1992,7 @@ function menu_close()
 	end
 	
 	menu_state = nil
-	menu_showInputs = 30 * 8
+	menu_showInputs = framerate / 2 * 20
 	
 	requireMainMenuAction()
 	
@@ -2143,7 +2129,7 @@ menu_data = {
 					self.display = menu_data["recording mode"].title .. ": " .. tostring(recordingModePrettyNames[recordingMode])
 				end,
 			},
-			{action = "changeMenu", target = "route select", description = "Select the route to work on.",
+			{action = "changeMenu", target = "route select", description = "Select the route to work on. Each route has its own savestates and ghosts.",
 				updateDisplay = function(self)
 					self.display = menu_data["route select"].title .. ": " .. tostring(routePrettyNames[currentRoute])
 				end,
@@ -2151,20 +2137,20 @@ menu_data = {
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
 			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route."},
 			{action = "changeMenu", target = "warp settings", description = "Change settings that are applied when loading the current segment."},
-			{action = "changeMenu", target = "display", description = nil},
-			{action = "changeMenu", target = "segment mode settings", description = nil},
-			{action = "changeMenu", target = "keyboard input", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
+			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
+			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
+			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
 		},
 	},
 	["recording mode"] = {
 		menuType = "selectSetting",
 		targetVariable = "recordingMode",
 		title = "Recording Mode",
-		description = nil,
+		description = "Decide whether ghosts are created automatically or manually.",
 		items = {
-			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and run against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
-			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a ghost of your fastest time on that segment will automatically start. New savepoints are created automatically as you navigate the game."},
-			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
+			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and practice against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
+			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a comparison ghost will automatically start. New savestates are created automatically as you complete your route."},
+			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented. You can still do a full run in segment mode and segment ghosts will play automatically as you move between levels.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
 		},
 		openFunction = function(self)
 			self.originalValue = getGlobalVariable(self.targetVariable)
@@ -2183,7 +2169,7 @@ menu_data = {
 		menuType = "selectSetting",
 		targetVariable = "currentRoute",
 		title = "Current Route",
-		description = nil,
+		description = "Select the route to practice. Each route creates a separate set of savestates and ghost recordings. If you do a complete run from the start of the game in segment recording mode, it will create all the savestates for that route automatically.",
 		items = {
 			{action = "selectSetting", setting = "any", display = routePrettyNames["any"], description = ""},
 			{action = "selectSetting", setting = "120", display = routePrettyNames["120"], description = ""},
@@ -2265,7 +2251,7 @@ menu_data = {
 	["warp settings"] = {
 		menuType = "normal",
 		title = "Warp Settings",
-		description = "These settings are applied when you load a segment from the warp menu or reset a segment, but not when moving naturally between segments.",
+		description = "These settings are applied when you load a segment from the warp menu or reset a segment, but not when moving naturally between segments. If you've changed Spyro's palette, this will be reapplied when you load savestates. If you've changed the music volume in the game's settings, this change will also be applied as savestates are loaded.",
 		items = {
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "health"}, prettyName = "Health", minValue = -1, maxValue = 3, displayFunction = function(value) local lut ={[-1] = "No Change", [0] = "Sparxless", [1] = "Green Sparx", [2] = "Blue Sparx", [3] = "Gold Sparx"} return lut[value] end, description = nil},
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "lives"}, prettyName = "Lives", minValue = -1, maxValue = 99, displayFunction = function(value) if value == -1 then return "No Change" end return value end, description = nil},
@@ -2321,7 +2307,7 @@ menu_data = {
 		description = nil,
 		reservedDescriptionLines = 4,
 		items = {
-			{action = "changeMenu", target = "spyroSkin", description = nil, updateDisplay = function(self) self.display = "Spyro's Skin: " .. (currentPalette_name or "Original") end},
+			{action = "changeMenu", target = "spyroSkin", description = "Change Spyro's palette data.", updateDisplay = function(self) self.display = "Spyro's Skin: " .. (currentPalette_name or "Original") end},
 			{action = "onOffSetting", targetVariable = "showBonkCounter", prettyName = "Show Bonk Counter", description = "Counts how many times Spyro bonks. The counter resets when you load a save state or reset a segment."},
 			{action = "offRawSmoothSetting", targetVariable = "showSpeed", prettyName = "Show Speed", description = "The change in Spyro's position."},
 			{action = "offRawSmoothSetting", targetVariable = "showGroundSpeed", prettyName = "Show Ground Speed", description = "The change in Spyro's position, ignoring the vertical component."},
@@ -2330,7 +2316,7 @@ menu_data = {
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
-			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the gem counter update much faster."},
+			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the game's gem counter update much faster."},
 		},
 	},
 	["spyroSkin"] = {
@@ -2355,7 +2341,6 @@ menu_data = {
 				end
 			end
 			
-			showIOWarning()
 		end,
 		closeFunction = function(self)
 			spyroSkin.applyPalette(currentPalette)
@@ -2380,8 +2365,7 @@ menu_data = {
 				end,
 			},
 			{action = "onOffSetting", targetVariable = "segment_showSubSegmentGhosts", prettyName = "Show Sub-Segment Ghosts", description = "When you rescue a dragon, all visible ghosts will jump forward or backward to rescue it at the same time. This does not change the time deltas that are shown.",},
-			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment.",},
-			{action = "onOffSetting", targetVariable = "segment_autoReloadFlightLevels", prettyName = "Auto-reload Flight Levels", description = "In segment recording mode, selecting \"Try Again\" from the in-game menu will reload the savepoint for that segment, so you will always practice the level from level entry and not level retry.",},
+			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment at the cost of increased memory usage.",},
 			{action = "onOffSetting", targetVariable = "segment_autoSaveGhosts", prettyName = "Auto-save Ghosts", description = "Automatically save ghosts when ending a segment. This is not recommended because the script cannot tell if a segment was completed successfully. This may be useful for creating segment recordings from a TAS.",},
 		},
 	},
@@ -2662,10 +2646,15 @@ menu_data = {
 			else
 				local key = self.keys[1]
 				if menu_currentData.keyboard_caps > 0 and #(self.keys) > 1 then key = self.keys[2] end
-				if key == "space" then key = " " end
+				if key == "space" then
+					key = " "
+					if menu_currentData.keyboard_caps == 0 then
+						menu_currentData.keyboard_caps = 1
+					end
+				end
 				menu_currentData.keyboard_output = menu_currentData.keyboard_output .. key
 				
-				if menu_currentData.keyboard_caps == 1 then menu_currentData.keyboard_caps = 0 end
+				if menu_currentData.keyboard_caps == 1 and key ~= " " then menu_currentData.keyboard_caps = 0 end
 			end
 		end,
 	},
@@ -2917,7 +2906,7 @@ function menu_updateItem(menuItem)
 				menuItem.description = menuItem.originalDescription .. " "
 			end
 			if setting == "True Position" then menuItem.description = menuItem.description .. "\"True Position\" shows the most up-to-date information for the current frame." end
-			if setting == "Delayed" then menuItem.description = menuItem.description .. "\"Delayed\" delays the position by two frames to match the game's frame buffer." end
+			if setting == "Delayed" then menuItem.description = menuItem.description .. "\"Delayed\" delays the position by two rendered frames to match the game's frame buffer." end
 		elseif menuItem.action == "offOnAlwaysSetting" then
 			--Condition: This menuItem is an offTrueDelayed, used for rendering things with an option to show them even if they are not in the same level
 			local setting = "Off"
@@ -3082,7 +3071,7 @@ function menu_draw_keyboard()
 	local selected_frontColor = "pink"
 	local selected_backColor = "purple"
 	
-	local outputString = "Name: " .. menu_currentData.keyboard_output
+	local outputString = "Name: " .. (menu_currentData.keyboard_output or "")
 	if menu_cursorFlash then outputString = outputString .. [[_]] end
 	
 	gui.drawText(x, y, outputString, "white", "black", 22)
@@ -3280,17 +3269,12 @@ function draw_updateSegment()
 	
 	if segment_lastRecording.flightLevel == nil or segment_lastRecording.flightLevel then
 	
-		--Calculate and print segment time
+		-- Calculate and print segment time
 		local endTime = getFormattedTime(segment_lastRecording.length)
-		--local sign = 1-- sign is +1 or -1 depending on whether we are faster or slower than the old segment time
-		--if endTime < 0 then sign = -1 end
-		--local seconds = endTime * sign;
-		--local frames = seconds % 60
-		--seconds = math.floor(seconds / 60) * sign
 		
 		gui.drawText(x, y+dy, "Final Time: " .. endTime, "white", "black")
 
-		--Calculate and print segment delta
+		-- Calculate and print segment delta
 		if menu_segmentUpdate_delta ~= nil then
 
 			local s, c = getFormattedTime(menu_segmentUpdate_delta, true, menu_segmentUpdate_forceFrames)--This should not be calculated here. 
@@ -3299,15 +3283,9 @@ function draw_updateSegment()
 			gui.drawText(x, y+2*dy, s, c, "black")
 		end
 		
-		--print button to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
-		if segment_readyToUpdate and (segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) then
-			local updateButton = ""
-			if menu_leftAction() == "updateSegment" then updateButton = "Right Stick: Left" end
-			if menu_rightAction() == "updateSegment" then updateButton = "Right Stick: Right" end
-			if menu_upAction() == "updateSegment" then updateButton = "Right Stick: Up" end
-			if menu_downAction() == "updateSegment" then updateButton = "Right Stick: Down" end
-			if menu_R3Action() == "updateSegment" then updateButton = "R3" end
-			if menu_L3Action() == "updateSegment" then updateButton = "L3" end
+		-- Print input to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
+		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) then
+			local updateButton = getInputForAction("updateSegment")
 			if updateButton ~= "" then
 				gui.drawText(x, y+3*dy, "Save new ghost with " .. updateButton, "white", "black")
 			end
@@ -3509,12 +3487,12 @@ function manual_clearData()
 end
 
 function createQuickSavestate()
-	savestate.save("quicksave")
+	savestate.save(file.combinePath("data", "quicksave"))
 end
 
 function loadQuickSavestate()
 	saveStateRequested = true
-	savestate.load("quicksave")
+	savestate.load(file.combinePath("data", "quicksave"))
 end
 
 -------------------------
@@ -3538,7 +3516,6 @@ if true then -- Segment Mode Settings and Variables
 	segment_lastRecording_gemTotal = 1	
 	segment_readyToUpdate = false
 	
-	segment_autoReloadFlightLevels = false -- A setting that automatically reloads a flight level's savestate if the player selects "try again" from the menu.
 	segment_autoSaveGhosts = false -- A setting to automatically save all ghosts without waiting for the player to confirm they should be saved. Only intended for use cases such as creating a ghost from a tas.
 	
 	
@@ -3552,6 +3529,8 @@ if true then -- Segment Mode Settings and Variables
 	segment_dragonSplitArmed = false
 	
 	segment_showSubSegmentGhosts = false
+	
+	segment_shownFlightLevelRestartTip = false
 end
 
 function segment_clearData()
@@ -3716,7 +3695,7 @@ function segment_halt()
 		segment_lastRecording = segment_recording
 		segment_recording = nil
 		
-		segment_lastRecording.enforceGemRequirement = currentRoute == "120" and segment_lastRecording.segment[1] == "Level" and segment_lastRecording.segment[3] == "Entry"
+		segment_lastRecording.enforceGemRequirement = currentRoute == "120" and segment_lastRecording.segment[1] == "Level" and (segment_lastRecording.segment[3] == "Entry" or segment_lastRecording.segment[3] == "Balloon")
 		
 		local level = segment_lastRecording.segment[2]
 		if segment_lastRecording.segment[3] ~= "Entry" then level = level - level % 10 end
@@ -3765,6 +3744,12 @@ function segment_restart(targetSegment)
 		
 		--load savestate
 		saveStateRequested = true
+		requestedState = targetFile
+		
+		local f = assert(io.open(file.combinePath("data", "requestedState.txt"), "w+"))
+		f:write(targetFile)
+		f:close()
+		
 		savestate.load(targetFile)
 		return true
 	else
@@ -3790,7 +3775,7 @@ function segment_saveCollectionSettings(c)
 	end
 	
 	local f = assert(io.open(segment_collectionSettings_getFileName(c), "w"))
-	f:write("Collection Settings", "\n", "Version: 1", "\n")
+	f:write("Collection Settings", "\n", "version: 1", "\n")
 	
 	f:write("showAll: ", (settings.showAll or false) and "True" or "False", "\n")
 	f:write("showRecent: ", tostring(settings.showRecent or 0), "\n")
@@ -3830,7 +3815,9 @@ function segment_exportGolds()
 			local goldGhost = ((collection_table[playerName] or {}).lengthSort or {})[1]
 			if goldGhost then
 				local targetPath = file.combinePath({"Ghosts", collectionFolder, routeFolderNames[category]})
-				if not file.exists(targetPath) then file.createFolder(targetPath) end
+				if not file.exists(targetPath) then
+					file.createFolder(targetPath)
+				end
 				file.copy(goldGhost.filePath, file.combinePath({targetPath, file.nameFromPath(goldGhost.filePath)}))
 			end
 		end
@@ -4012,7 +3999,6 @@ function populateFileList()
 		setGlobalVariable({"savestateData", bizstring.trim(fileParts[2]), bizstring.trim(fileParts[3]), bizstring.trim(fileParts[4])}, fullPath)
 	end)
 	
-	showIOWarning()
 end
 
 function addNewGhostMeta(ghostMeta)
@@ -4096,6 +4082,10 @@ function Ghost.startNewRecording()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
 	
+	newRecording.state1 = {}
+	newRecording.state2 = {}
+	newRecording.state3 = {}
+	
 	newRecording.uid = bizstring.replace(string.format("%04X%03X%X", math.random(2 ^ 16) - 1, Ghost.counter, os.time()) .. tostring(playerName), " ", "")
 	Ghost.counter = Ghost.counter + 1
 	
@@ -4161,7 +4151,7 @@ function Ghost:updateRecording()
 		newKeyframe = true
 	else
 		--Create keyframe if too much time has passed
-		if self.keyframes[targetKeyframe][1] - self.keyframes[targetKeyframe - 1][1] > 60 then
+		if self.keyframes[targetKeyframe][1] - self.keyframes[targetKeyframe - 1][1] > framerate then
 			newKeyframe = true
 		end
 		
@@ -4191,28 +4181,36 @@ function Ghost:updateRecording()
 		local totalError = math.sqrt(xError * xError + yError * yError + zError * zError)
 		--gui.drawText(100, 100, tostring(totalError), "white", "black")
 				
-		if totalError > 150 then
+		if totalError > 100 then
 			newKeyframe = true
 		end
 		
 		local dirError = math.abs(spyroDirection - (self.keyframes[targetKeyframe - 1][3] + dirSpeed * deltaTime))
-		if dirError > 3.1 then dirError = _tau - dirError end
+		if dirError > _pi then dirError = _tau - dirError end
 		
-		if dirError > 0.2 then
+		if dirError > 0.15 then
 			newKeyframe = true
 		end
 		
 		--Create keyframe if our angle has changed too much
 		local directionChange = math.abs(spyroDirection - self.keyframes[targetKeyframe - 1][3])
-		if directionChange > 3.1 then directionChange = _tau - directionChange end
+		if directionChange > _pi then directionChange = _tau - directionChange end
 		if directionChange > 2 then
 			newKeyframe = true
 		end
 		
 	end
 	
+	--Create keyframes when Spyro starts and stops moving
+	self.state3 = self.state2
+	self.state2 = self.state1
+	self.state1 = {spyroX, spyroY, spyroZ, spyroDirection}
+	if table.isSimilar(self.state1, self.state2) ~= table.isSimilar(self.state2, self.state3) then
+		newKeyframe = true
+	end
+	
 	--Create keyframe on button events
-	if inputs.square.press or inputs.square.release or inputs.X.press then
+	if (inputs.square.press or inputs.square.release or inputs.X.press) and (spyroControl == 0 and gameState == 0) then
 		newKeyframe = true
 	end
 	
@@ -4235,9 +4233,9 @@ function Ghost:updateRecording()
 	end
 	
 	local newLevel = false
-	--Detect entry into loading screens
-	if loadingState > -1 and lastLoadingState == -1 then
-		showDebug("Detected level loading state")
+	--Detect level change
+	if lastLevel ~= currentLevel then
+		showDebug("Detected level change")
 		newLevel = true
 		newSegment = true
 	end
@@ -4248,10 +4246,19 @@ function Ghost:updateRecording()
 		animationChange = true
 	end
 	
+	if Ghost.noCompression then
+		newKeyframe = true
+	end
+	
 	if newKeyframe then
 		targetKeyframe = targetKeyframe + 1
 		--gui.drawText(100, 120, "Keyframe!", "white", "black")
 		--keyframeHit = keyframeHit + 1
+
+	end
+	
+	if Ghost.showKeyframes then
+		gui.drawPie(70, 30, 60, 34, 0, 360, 0, conditional(newKeyframe, 0xFFFF0000, 0xFFE0E0E0))
 	end
 
 	--keyframeTotal = keyframeTotal + 1
@@ -4720,7 +4727,7 @@ spyroSkin.palettes_iveGotSomeThingsToDo = {
 	{0x40602, 0x4061E},
 }
 
-spyroSkin.palettes_iveGotSomeThingsToDo_PAL = {
+spyroSkin.palettes_iveGotSomeThingsToDo_PAL = {--Confirmed on English. Known to be wrong on Spanish. Yup.
 	{0xC47E2, 0xC47FE}, -- Palette #1
 	{0xC87C2, 0xC87DE}, -- Palette #2
 	{0xC87E2, 0xC87FE}, -- Palette #3
@@ -5330,18 +5337,15 @@ function menu_populateSegments()
 	--]]
 end
 
-function showIOWarning()
-	if showIOWarning_shouldShow then
-		showIOWarning_shouldShow = false
-		print("\n\n\nNOTICE: The Bizhawk Lua window likes to pull focus away from the game window when searching for files. Minimizing this window will stop it doing that and the script will still work.")
-	end
-end
-
 -------------------------
 -- Events
 -------------------------
 
 function onLoadSavestate()
+	
+	requestedState = nil
+	os.remove(file.combinePath("data", "requestedState.txt"))
+
 	if not saveStateRequested then
 		tryRunGlobalFunction("clearAllRecordingData")
 	else
@@ -5373,12 +5377,13 @@ end
 -------------------------
 
 if true then
+	
 	math.randomseed(os.time())
 	
 	event.unregisterbyname("onLoadSavestate")
 	event.onloadstate(onLoadSavestate, "onLoadSavestate")
 
-	currentLevel = memory.read_u32_le(0x0758B4 + m[3])
+	currentLevel = memory.read_u32_le(0x07596C + m[5])
 	lastLevel = currentLevel - (currentLevel % 10)
 	currentSegment = {"Level", currentLevel, "Entry"}
 	if currentLevel % 10 == 0 then
@@ -5399,15 +5404,66 @@ if true then
 	populateFileList()
 	segment_loadAllCollectionSettings()
 	
-	menu_showInputs = 30 * 8
+	menu_showInputs = framerate / 2 * 30
 	requireMainMenuAction()
+	
+	print("\n\n\nWelcome to LuaGhost for Spyro the Dragon!\n")
+	
+	print("LuaGhost version: " .. _LuaGhostVersion)
+	print("BizHawk version: " .. client.getversion() .. " (" .. _VERSION .. ")")
+	print("Game version: " .. gameinfo.getromname() .. "\n")
+	
+	print("This window likes to pull focus away from the game window when reading and writing files. Minimizing this window should stop it doing that.\n\nIf LuaGhost ever crashes while loading a savestate, you'll need to close and reopen this window before LuaGhost will work again. Just refreshing or toggling the script might not work.\n")
+
+	local menuInput = getInputForAction("openMenu")
+	if menuInput ~= "" then
+		print("Open LuaGhost's in-game menu with: " .. menuInput .. "\n")
+	end
 
 	--For first-time users. Prompt them to enter a name.
 	if playerName == defaultPlayerName then
 		menu_open("keyboard input", playerNameMenuOptions)
 	end
 	
-	showIOWarning_shouldShow = true
+	-- requestedState is set to the filename of a savestate
+	-- before attempting to load that state. This name is
+	-- also written to data\requestedState.txt. Both
+	-- requestedState and the file are erased by
+	-- onLoadSavestate(). If the file exists during this
+	-- startup routine, then the script must have crashed
+	-- during the load, meaning the savestate file might be
+	-- corrupt. If requestedState is defined here, then the
+	-- user has not restarted the lua console since the
+	-- crash occurred. When crashes happen on savestate
+	-- loads, it leaves the lua console in a corrupted
+	-- state that may crash on loading ANY savestate (even
+	-- ones that should work fine) or may be entirely
+	-- unresponsive. It will only be fixed when the user closes
+	-- and restarts the console. Here, we should prompt the
+	-- user to delete the corrupted file and restart the
+	-- console if needed.
+	local restartRequired = false
+	if requestedState then
+		restartRequired = true
+	end
+	if file.exists(file.combinePath("data", "requestedState.txt")) then
+		local f = assert(io.open(file.combinePath("data", "requestedState.txt"), "r"))
+		requestedState = f:read()
+		f:close()
+		os.remove(file.combinePath("data", "requestedState.txt"))
+	end
+	if requestedState then
+		gui.drawText(28, 15, "Error: See the lua console for details.", "white", "black")
+		print("\n\n\nNOTICE\nIt looks like LuaGhost crashed while loading the following savestate:\n\n" .. requestedState .. "\n\nThis can happen if specific emulator settings have changed since the savestate was created. You'll either need to delete the savestate file to let LuaGhosts recreate it with your new settings or revert any recent changes you've made to emulator settings. The settings that can cause this problem are the ones in \"PSX\" -> \"Controller / Memcard Configuration\".\n\n")
+		if restartRequired then
+			print("\nYou'll also need to close and reopen this window before LuaGhost will run.")
+		else
+			requestedState = nil
+		end
+		
+		-- Close the script
+		return
+	end
 end
 
 -------------------------

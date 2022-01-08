@@ -2,6 +2,14 @@ local file = {}
 
 file.seperator = package.config:sub(1, 1)
 
+-- Compatibility check: I've had trouble with the return
+-- from os.rename being inconsistent. I don't know if it's
+-- still a problem, but I'm checking by renaming a known
+-- file to be sure.
+os.execute("echo check > \"data" .. file.seperator .. "luaVersionCheck.txt\"")
+file.renameSuccessCondition = os.rename("data" .. file.seperator .. "luaVersionCheck.txt", "data" .. file.seperator .. "luaVersionCheck.txt")
+
+
 function file.combinePath(a, b, c, d, e)
 	local seperator = file.seperator
 	if type(a) == "string" then
@@ -55,8 +63,12 @@ function file.copy(old, new)
 	f:close()
 end
 
+function file.rename(original, destination)
+	return os.rename(original, destination) == file.renameSuccessCondition
+end
+
 function file.exists(path)
-	return os.rename(path, path) == true
+	return file.rename(path, path)
 end
 
 function file.createFolder(path)
