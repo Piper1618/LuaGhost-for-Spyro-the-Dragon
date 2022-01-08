@@ -5,7 +5,7 @@ This script can be run through the Lua console in the [BizHawk emulator](http://
 
 # Download
 
-You can download the latest version of LuaGhost [here](https://github.com/Piper1618/TestProject/releases/latest). Look for the LuaGhost_Spyro1.zip file and download it. I recommend extracting the .zip file into BizHawk's Lua folder, but you can put it wherever you want.
+You can download the latest version of LuaGhost [here](https://github.com/Piper1618/LuaGhost-for-Spyro-the-Dragon/releases/latest). Look for the LuaGhost_Spyro1.zip file and download it. I recommend extracting the .zip file into BizHawk's Lua folder, but you can put it wherever you want.
 
 # Setup
 
