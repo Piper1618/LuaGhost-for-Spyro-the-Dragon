@@ -5545,14 +5545,14 @@ while true do
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_iveGotSomeThingsToDo) -- intro cutscene
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_toast) -- post gnasty gnorc
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_whatsAMinion) -- post gnasty's loot
-		elseif currentLevel == 63 and spyroControl > 0 then
+		elseif currentLevel == 63 and spyroControl > 0 and lastSpyroControl == 0 then
 			-- Level 63 is Gnasty Gnorc. When Spyro kills
 			-- the boss, he is turned invisible and
 			-- replaced with a separate object that turns
 			-- and laughs at Gnasty Gnorc. We only need to
 			-- perform this check while player control is
 			-- disabled (spyroControl > 0).
-			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_laughing)
+			spyroSkin.applyPalette(currentPalette, spyroSkin.palettes_laughing)
 		end
 		
 		-- Handle recording		
