@@ -5360,7 +5360,7 @@ function onLoadSavestate()
 			local segment = getSegmentHandle()
 			if segment_settings[category] ~= nil and segment_settings[category][segment] ~= nil then
 				local health = segment_settings[category][segment].health or -1
-				if health > -1 then memory.write_u32_le(0x078BBC + m[4], health) end
+				if health > -1 then setHealth_armed = health end
 				local lives = segment_settings[category][segment].lives or -1
 				if lives > -1 then memory.write_u32_le(0x07582C + m[3], lives) end
 			end
@@ -5573,6 +5573,12 @@ while true do
 		
 		for i, ghost in ipairs(segment_ghosts) do
 			Ghost.update(ghost)
+		end
+		
+		-- Update health as needed when loading savestates
+		if (setHealth_armed or -1) > -1 and loadingState == -1 then
+			memory.write_u32_le(0x078BBC + m[4], setHealth_armed)
+			setHealth_armed = -1
 		end
 		
 		-- Handle menus
