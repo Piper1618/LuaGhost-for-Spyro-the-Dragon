@@ -1,8 +1,9 @@
 local inputs = {
 	_menuPress_delay = 20,
 	_menuPress_period = 3,
-	_pressThreshold = 96,    -- Threshold at which sticks will count as button presses
-	_releaseThreshold = 64,  -- Threshold below which sticks will release a held button
+	_pressThreshold = 80,    -- Threshold at which sticks will count as button presses
+	_releaseThreshold = 48,  -- Threshold below which sticks will release a held button
+	_analogOvershootCooldown = 3, -- When releasing an analog stick quickly, it can overshoot and register an input in the other direction. This is used to prevent that.
 }
 
 -- Define the inputs we want to track.
@@ -107,6 +108,7 @@ for i, v in ipairs(inputs._inputTypes) do
 			value = 128,
 			positiveButton = false,
 			negativeButton = false,
+			overshootCooldown = 0,
 		}
 	end
 end
@@ -133,9 +135,14 @@ function inputs:update()
 				thisInput.menuPress = false
 			end
 		elseif definition._form == "analog" then
+			thisInput.overshootCooldown = thisInput.overshootCooldown - 1
+			if thisInput.overshootCooldown < 0 then thisInput.overshootCooldown = 0 end
+			
+			if (thisInput.positiveButton and newValue <= 128 + self._releaseThreshold) or (thisInput.negativeButton and newValue >= 128 - self._releaseThreshold) then thisInput.overshootCooldown = self._analogOvershootCooldown end
+			
 			thisInput.value = newValue
-			thisInput.positiveButton = thisInput.positiveButton and (newValue > 128 + self._pressThreshold) or (newValue > 128 + self._releaseThreshold)
-			thisInput.negativeButton = thisInput.negativeButton and (newValue < 128 - self._pressThreshold) or (newValue < 128 - self._releaseThreshold)
+			thisInput.positiveButton = thisInput.positiveButton and (newValue > 128 + self._releaseThreshold) or (newValue > 128 + self._pressThreshold and thisInput.overshootCooldown == 0)
+			thisInput.negativeButton = thisInput.negativeButton and (newValue < 128 - self._releaseThreshold) or (newValue < 128 - self._pressThreshold and thisInput.overshootCooldown == 0)
 		end		
 	end
 	
