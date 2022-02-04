@@ -5360,7 +5360,10 @@ function onLoadSavestate()
 			local segment = getSegmentHandle()
 			if segment_settings[category] ~= nil and segment_settings[category][segment] ~= nil then
 				local health = segment_settings[category][segment].health or -1
-				if health > -1 then setHealth_armed = health end
+				if health > -1 then
+					memory.write_u32_le(0x078BBC + m[4], health)
+					memory.write_u32_le(0x07580C + m[3], health)
+				end
 				local lives = segment_settings[category][segment].lives or -1
 				if lives > -1 then memory.write_u32_le(0x07582C + m[3], lives) end
 			end
