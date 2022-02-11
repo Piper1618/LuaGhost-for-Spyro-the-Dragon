@@ -3850,6 +3850,23 @@ function populateFileList()
 	-- The global table that will hold the information about ghosts
 	ghostData = {}
 	
+	-- Ghost metadata will be saved to a file so we can load it faster next time.
+	cachedGhostData = {VERSION = 2}
+	
+	local cacheFilePath = file.combinePath("data","cachedGhostData.txt")
+	if file.exists(cacheFilePath) then
+		local f  = assert(io.open(file.combinePath("data","cachedGhostData.txt"), "r"))
+		loadedGhostDataCache = JSON:decode(f:read("*a"))
+		f:close()
+	else
+		loadedGhostDataCache = {}
+	end
+	
+	if loadedGhostDataCache.VERSION ~= cachedGhostData.VERSION then
+		-- Version mismatch, so discard the old cache
+		loadedGhostDataCache = {}
+	end
+	
 	-- The global table that will hold a list of available ghost collections.
 	-- These are the folders in the 
 	collections = {}
@@ -3876,96 +3893,110 @@ function populateFileList()
 		-- Skip this file if it is a collection settings file
 		if string.ends(fileName, "collectionSettings.txt") then return end
 		
-		-- The metadata for this ghost (assuming it is a valid ghost file)
-		local ghostMeta = {filePath = fullPath}
-		
+		-- Keep track of whether we have successfully loaded this ghost's metadata
 		local ghostIsValid = false
 		
-		-- Determine the collection.
-		local directoryTreeList = string.split(fullPath, seperator)
-		if #directoryTreeList < collectionDirectoryLevel + 1 then
-			-- Condition: The user has put a ghost file
-			-- directly in the Ghosts folder, not a
-			-- collection folder. Treat this as the
-			-- Unknown collection.
-			ghostMeta.collection = "Unknown"
+		-- Check if the file's metadata has been cached
+		if loadedGhostDataCache[fullPath] then
+			-- Condition: this file has been loaded before, so load the cached metadata
+			
+			addNewGhostMeta(loadedGhostDataCache[fullPath])
+			cachedGhostData[fullPath] = loadedGhostDataCache[fullPath]
+			ghostIsValid = true
 		else
-			ghostMeta.collection = directoryTreeList[collectionDirectoryLevel]
-		end
-		
-		-- Track what collections exist.
-		collections[ghostMeta.collection] = true
-		
-		-- The entries to search for. The ghost is only considered valid if all of these are present.
-		local requiredItems = {"uid", "playerName", "gameName", "mode", "framerate", "category", "segment", "length", "timestamp"}
-		
-		-- Open the file and begin looping through its lines.
-		local f = assert(io.open(fullPath, "r"))
-		local keepLooping = true
-		
-		local line = f:read()
-		
-		if line == "version: 2" then 
-			while keepLooping do
-				line = f:read()
-				if line == nil then
-					-- Condition: We've reached the end of the
-					-- file, so exit the loop. If we reach this
-					-- point, then the required info was not
-					-- found in the file and the metadata
-					-- is discarded.
-					
-					keepLooping = false
-					
-				else
-					-- Condition: We haven't reached the end of
-					-- the file. Check this line to see if it
-					-- has information we need.
-					
-					for i, v in ipairs(requiredItems) do
-						-- Loop through the list of
-						-- requirements, checking each to see
-						-- if we've found it.
-						if string.starts(line, v) then
-							-- Condition: We've found a piece of data we're
-							-- looking for. Add it to the metadata for this ghost.
-							ghostMeta[v] = string.trim(string.sub(line, string.len(v) + 2))
-							
-							-- Remove this requirement from the list. This is done
-							-- both so we don't keep searching for it and because
-							-- we check if we've found all the required data by
-							-- testing if requiredItems is empty.
-							table.remove(requiredItems, i)
-							break
-						end
-					end
-					
-					-- Check if we've found all the requirements.
-					if #requiredItems == 0 then
-						-- If we have, then stop reading data
-						-- from this file and add the metadata
-						-- to the global table.
+			-- Condition: we have no record of seeing this file before, so open the file to investigate
+			
+			-- The metadata for this ghost (assuming it is a valid ghost file)
+			local ghostMeta = {filePath = fullPath}
+			
+			-- Determine the collection.
+			local directoryTreeList = string.split(fullPath, seperator)
+			if #directoryTreeList < collectionDirectoryLevel + 1 then
+				-- Condition: The user has put a ghost file
+				-- directly in the Ghosts folder, not a
+				-- collection folder. Treat this as the
+				-- Unknown collection.
+				ghostMeta.collection = "Unknown"
+			else
+				ghostMeta.collection = directoryTreeList[collectionDirectoryLevel]
+			end
+			
+			-- Track what collections exist.
+			collections[ghostMeta.collection] = true
+			
+			-- The entries to search for. The ghost is only considered valid if all of these are present.
+			local requiredItems = {"uid", "playerName", "gameName", "mode", "framerate", "category", "segment", "length", "timestamp"}
+			
+			-- Open the file and begin looping through its lines.
+			local f = assert(io.open(fullPath, "r"))
+			local keepLooping = true
+			
+			local line = f:read()
+			
+			if line == "version: 2" then 
+				while keepLooping do
+					line = f:read()
+					if line == nil then
+						-- Condition: We've reached the end of the
+						-- file, so exit the loop. If we reach this
+						-- point, then the required info was not
+						-- found in the file and the metadata
+						-- is discarded.
 						
-						-- First, convert some values to numbers
-						ghostMeta.framerate = tonumber(ghostMeta.framerate)
-						ghostMeta.timestamp = tonumber(ghostMeta.timestamp)
-						ghostMeta.length = tonumber(ghostMeta.length)
-						if ghostMeta.framerate ~= framerate then
-							ghostMeta.length = ghostMeta.length * framerate / ghostMeta.framerate
-						end
-						
-						-- Add the metadata to the global table, initializing the tables if they do not exist
 						keepLooping = false
-						if ghostMeta.gameName == "Spyro the Dragon" then
-							addNewGhostMeta(ghostMeta)
-							ghostIsValid = true
+						
+					else
+						-- Condition: We haven't reached the end of
+						-- the file. Check this line to see if it
+						-- has information we need.
+						
+						for i, v in ipairs(requiredItems) do
+							-- Loop through the list of
+							-- requirements, checking each to see
+							-- if we've found it.
+							if string.starts(line, v) then
+								-- Condition: We've found a piece of data we're
+								-- looking for. Add it to the metadata for this ghost.
+								ghostMeta[v] = string.trim(string.sub(line, string.len(v) + 2))
+								
+								-- Remove this requirement from the list. This is done
+								-- both so we don't keep searching for it and because
+								-- we check if we've found all the required data by
+								-- testing if requiredItems is empty.
+								table.remove(requiredItems, i)
+								break
+							end
+						end
+						
+						-- Check if we've found all the requirements.
+						if #requiredItems == 0 then
+							-- If we have, then stop reading data
+							-- from this file and add the metadata
+							-- to the global table.
+							
+							-- First, convert some values to numbers
+							ghostMeta.framerate = tonumber(ghostMeta.framerate)
+							ghostMeta.timestamp = tonumber(ghostMeta.timestamp)
+							ghostMeta.length = tonumber(ghostMeta.length)
+							if ghostMeta.framerate ~= framerate then
+								ghostMeta.length = ghostMeta.length * framerate / ghostMeta.framerate
+							end
+							
+							-- Add the metadata to the global table, initializing the tables if they do not exist
+							keepLooping = false
+							if ghostMeta.gameName == "Spyro the Dragon" then
+								addNewGhostMeta(ghostMeta)
+								cachedGhostData[fullPath] = ghostMeta
+								ghostIsValid = true
+							end
 						end
 					end
 				end
 			end
-		end
+			
+			f:close()
 		
-		f:close()
+		end
 		
 		-- Load the ghost into the cache if the segment_preloadAllGhosts setting is set.
 		if ghostIsValid and segment_preloadAllGhosts and segment_loadedGhostCache[ghostMeta.uid] == nil then
@@ -3976,6 +4007,14 @@ function populateFileList()
 		end
 		
 	end)
+	
+	-- Save the metadata cache so it can be loaded
+	-- faster next time.
+	local f  = assert(io.open(file.combinePath("data","cachedGhostData.txt"), "w"))
+	f:write(JSON:encode(cachedGhostData))
+	f:close()
+	cachedGhostData = nil
+	loadedGhostDataCache = nil
 	
 	-- The table that will hold information about the available savestates
 	savestateData = {}
