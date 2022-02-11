@@ -51,6 +51,7 @@ if true then
 	loadLib("bizHawkLuaUtility")
 	file = loadLib("file")
 	inputs = loadLib("inputs")
+	JSON = assert(loadfile [[libs\JSON.lua]])()
 
 	--Return the path to its default state, in case
 	--anything else needs it to be that way.
