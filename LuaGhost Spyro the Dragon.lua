@@ -1404,7 +1404,13 @@ function getCategoryHandle()
 	-- function MUST return currentRoute unchanged, or
 	-- there will be compatibility problems.
 	local s = currentRoute
+	return s
+end
 
+function getCategoryFolderName(route)
+	if route == nil then route = currentRoute end
+	
+	local s = routeFolderNames[currentRoute]
 	return s
 end
 
@@ -1789,7 +1795,7 @@ action_data = {
 		actionFunction = function()
 			if segment_readyToUpdate and segment_lastRecording ~= nil then
 				local g = segment_lastRecording
-				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], routeFolderNames[g.category])
+				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], getCategoryFolderName(g.category))
 				if not file.exists(folder) then
 					file.createFolder(folder)
 				end
@@ -3824,7 +3830,7 @@ function segment_exportGolds()
 		for segment, collection_table in pairs(segment_table) do
 			local goldGhost = ((collection_table[playerName] or {}).lengthSort or {})[1]
 			if goldGhost then
-				local targetPath = file.combinePath({"Ghosts", collectionFolder, routeFolderNames[category]})
+				local targetPath = file.combinePath({"Ghosts", collectionFolder, getCategoryFolderName(category)})
 				if not file.exists(targetPath) then
 					file.createFolder(targetPath)
 				end
