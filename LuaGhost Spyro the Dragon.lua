@@ -1400,8 +1400,17 @@ function tryParseSetting(str, prefix, targetVariable, Type)
 end
 
 function getCategoryHandle()
+	-- Important: if no category variants are set, this
+	-- function MUST return currentRoute unchanged, or
+	-- there will be compatibility problems.
 	local s = currentRoute
 
+	return s
+end
+
+function getCategoryPrettyName()
+	local s = routePrettyNames[currentRoute]
+	
 	return s
 end
 
@@ -2132,7 +2141,7 @@ menu_data = {
 			},
 			{action = "changeMenu", target = "route select", description = "Select the route to work on. Each route has its own savestates and ghosts.",
 				updateDisplay = function(self)
-					self.display = menu_data["route select"].title .. ": " .. tostring(routePrettyNames[currentRoute])
+					self.display = menu_data["route select"].title .. ": " .. getCategoryPrettyName()
 				end,
 			},
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
@@ -3231,7 +3240,7 @@ function draw_inputs()
 	local left = 60
 	
 	gui.drawText(left, top + spacing * 0, " Mode: " .. tostring(recordingModePrettyNames[recordingMode]), "white", "black")
-	gui.drawText(left, top + spacing * 1, "Route: " .. tostring(routePrettyNames[currentRoute]), "white", "black")
+	gui.drawText(left, top + spacing * 1, "Route: " .. tostring(getCategoryPrettyName()), "white", "black")
 	
 	gui.drawText(left, top + spacing * 4, "  Right Stick", "white", "black")
 	gui.drawText(left, top + spacing * 5, " Left: " .. getActionName(menu_leftAction()), "white", "black")
@@ -3589,7 +3598,7 @@ function segment_loadGhosts()
 	-- For each collection, load some ghosts from it (maybe).
 	for collectionName in pairs(collections) do
 				
-		local collection = getGlobalVariable({"ghostData", "segment", currentRoute, segmentToString(currentSegment), collectionName})
+		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(), segmentToString(currentSegment), collectionName})
 		
 		if type(collection) == "table" then
 		
@@ -3630,7 +3639,7 @@ function segment_loadGhosts()
 	end
 	
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
-	local comparison_target = getGlobalVariable({"ghostData", "segment", currentRoute, segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
+	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
 	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
 	if Ghost.isGhost(ghost) then
@@ -4117,7 +4126,7 @@ function Ghost.startNewRecording()
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
 	newRecording.mode = recordingMode
-	newRecording.category = currentRoute
+	newRecording.category = getCategoryHandle()
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
