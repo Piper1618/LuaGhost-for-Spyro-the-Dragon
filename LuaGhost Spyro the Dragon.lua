@@ -1614,7 +1614,7 @@ function handleUserInput()
 			end
 		end
 		
-		if inputs.X.menuPress then
+		if inputs.X.press then
 			menu_select()
 		end
 		
@@ -1640,7 +1640,7 @@ function handleUserInput()
 			end
 		end
 		
-		if inputs.triangle.menuPress then
+		if inputs.triangle.press then
 			if type(menu_currentData.backFunction) == "function" then
 				menu_currentData:backFunction()
 			else
