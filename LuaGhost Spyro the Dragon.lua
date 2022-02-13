@@ -2314,7 +2314,7 @@ menu_data = {
 			
 			menu_title = "Warp Settings for " .. levelInfo[currentSegment[2]].name .. " " .. currentSegment[3]
 			
-			local category = getCategoryHandle()
+			local category = currentRoute
 			local segment = getSegmentHandle()
 			menu_segmentSettings = menu_segmentSettings or {}
 			segment_settings[category] = segment_settings[category] or {}		
@@ -5424,7 +5424,7 @@ function onLoadSavestate()
 				end
 			end
 			
-			local category = getCategoryHandle()
+			local category = currentRoute
 			local segment = getSegmentHandle()
 			if segment_settings[category] ~= nil and segment_settings[category][segment] ~= nil then
 				local health = segment_settings[category][segment].health or -1
