@@ -1216,71 +1216,49 @@ if true then
 	playerName = defaultPlayerName
 	
 	quickUpdatingGems = false
+	
+	-- A list of the global variables that will be saved to settings.txt
+	globalSettings = {
+		"playerName",
+		"showSpyroPosition",
+		"showBonkCounter",
+		"showSpeed",
+		"showGroundSpeed",
+		"showLogicalSpeed",
+		"quickUpdatingGems",
+		"showArtisanProps",
+		"showGhostAnimations",
+		"currentPalette_name",
+		"recordingMode",
+		"currentRoute",
+		"variant_sparxless",
+		"showDebugMessages",
+		"timeFormat_frames",
+		"segment_comparison_collection",
+		"segment_comparison_target",
+		"segment_comparison_useColor",
+		"segment_comparison_color",
+		"segment_preloadAllGhosts",
+		"segment_autoSaveGhosts",
+		"segment_showSubSegmentGhosts",
+		"controls",
+		"segment_settings",
+	}
 end
 
 function settings_save()
+	
+	local settingsPackage = {}
+	
+	for i, v in ipairs(globalSettings) do
+		settingsPackage[v] = _G[v]
+	end
+	
 	local f = assert(io.open(settings_file, "w"))
-	f:write("settingsVersion: 1", "\n")
-	f:write("playerName: ", tostring(playerName), "\n")
-	f:write("showSpyroPosition: ", tostring(showSpyroPosition), "\n")
-	f:write("showBonkCounter: ", tostring(showBonkCounter), "\n")
-	f:write("showSpeed: ", tostring(showSpeed), "\n")
-	f:write("showGroundSpeed: ", tostring(showGroundSpeed), "\n")
-	f:write("showLogicalSpeed: ", tostring(showLogicalSpeed), "\n")
-	f:write("quickUpdatingGems: ", tostring(quickUpdatingGems), "\n")
-	f:write("showArtisanProps: ", tostring(showArtisanProps), "\n")
-	f:write("showGhostAnimations: ", showGhostAnimations and "True" or "False", "\n")
-	f:write("currentPalette_name: ", currentPalette_name, "\n")
-	f:write("recordingMode: ", recordingMode, "\n")
-	f:write("currentRoute: ", currentRoute, "\n")
-	f:write("variant_sparxless: ", variant_sparxless and "True" or "False", "\n")
-	f:write("showDebugMessages: ", showDebugMessages and "True" or "False", "\n")
-	f:write("timeFormat_frames: ", timeFormat_frames and "True" or "False", "\n")
-	f:write("segment_comparison_collection: ", segment_comparison_collection, "\n")
-	f:write("segment_comparison_target: ", segment_comparison_target, "\n")
-	f:write("segment_comparison_useColor: ", segment_comparison_useColor and "True" or "False", "\n")
-	f:write("segment_comparison_color: ", string.format("0x%X", segment_comparison_color), "\n")
-	f:write("segment_preloadAllGhosts: ", segment_preloadAllGhosts and "True" or "False", "\n")
-	f:write("segment_autoSaveGhosts: ", segment_autoSaveGhosts and "True" or "False", "\n")
-	f:write("segment_showSubSegmentGhosts: ", segment_showSubSegmentGhosts and "True" or "False", "\n")
-		
-	--[[
-	f:write("segment_ghostSettings: ")
-	for c in pairs(segment_ghostSettings) do
-		f:write(
-			"collection ", setting_encodeString(c), " ",
-			"showAll ", (segment_ghostSettings[c].showAll or false) and "True" or "False", " ",
-			"showRecent ", tostring(segment_ghostSettings[c].showRecent or 0), " ",
-			"showFastest ", tostring(segment_ghostSettings[c].showFastest or 0), " ",
-			"color ", string.format("0x%X", segment_ghostSettings[c].color or 0), " "
-		)
-	end
-	f:write("\n")
-	--]]
-	
-	f:write("controls: ")
-	for m in pairs(controls) do--recording mode
-		f:write("m " .. m .. " ")
-		for c, v in pairs(controls[m]) do--control
-			if (v or "") ~= "" then
-				f:write(tostring(c) .. " " .. tostring(v) .. " ")
-			end
-		end
-	end
-	f:write("\n")
-	
-	f:write("segment_settings: ")
-	for c in pairs(segment_settings) do
-		f:write("c " .. c .. " ")
-		for s in pairs(segment_settings[c]) do
-			f:write("s " .. s .. " ")
-			if segment_settings[c][s].health ~= nil then f:write("h " .. tostring(segment_settings[c][s].health) .. " ") end
-			if segment_settings[c][s].lives ~= nil then f:write("l " .. tostring(segment_settings[c][s].lives) .. " ") end
-		end
-	end
-	f:write("\n")	
-	
+	f:write("settingsVersion: 2", "\n")
+	f:write(JSON:encode_pretty(settingsPackage))
 	f:close()
+	
 end
 
 function settings_load()
@@ -1289,96 +1267,118 @@ function settings_load()
 	segment_settings = {}
 	
 	local f = assert(io.open(settings_file, "r"))
-	while true do
-		local t = f:read()
-		if t == nil then break end
+	
+	local fileVersion = f:read()
+	
+	if fileVersion == "settingsVersion: 2" then
+		-- Condition: This is the first version of settings
+		-- file to use JSON encoding. Adding new global
+		-- settings is now as simple as adding the global
+		-- variable names to the globalSettings array.
 		
-		tryParseSetting(t, "playerName: ", "playerName", "string")
-		tryParseSetting(t, "showBonkCounter: ", "showBonkCounter", "bool")
-		tryParseSetting(t, "showSpeed: ", "showSpeed", "number")
-		tryParseSetting(t, "showGroundSpeed: ", "showGroundSpeed", "number")
-		tryParseSetting(t, "showLogicalSpeed: ", "showLogicalSpeed", "number")
-		tryParseSetting(t, "showSpyroPosition: ", "showSpyroPosition", "number")
-		tryParseSetting(t, "quickUpdatingGems: ", "quickUpdatingGems", "bool")
-		tryParseSetting(t, "showArtisanProps: ", "showArtisanProps", "number")
-		tryParseSetting(t, "showGhostAnimations: ", "showGhostAnimations", "bool")
-		tryParseSetting(t, "currentPalette_name: ", "currentPalette_name", "string")
-		tryParseSetting(t, "recordingMode: ", "recordingMode", "string")
-		tryParseSetting(t, "variant_sparxless: ", "variant_sparxless", "bool")
-		tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
-		tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
-		tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
-		tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
-		tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
-		tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
-		tryParseSetting(t, "segment_comparison_color: ", "segment_comparison_color", "number")
-		tryParseSetting(t, "segment_preloadAllGhosts: ", "segment_preloadAllGhosts", "bool")	
-		tryParseSetting(t, "segment_autoSaveGhosts: ", "segment_autoSaveGhosts", "bool")
-		tryParseSetting(t, "segment_showSubSegmentGhosts: ", "segment_showSubSegmentGhosts", "bool")
+		local settingsPackage = JSON:decode(f:read("*a"))
 		
-		if string.starts(t, "segment_ghostSettings:") then
-			segment_ghostSettings = {}
-			
-			local items = string.split(t, " ")
-			local i = 2
-			
-			local c = "Unknown"--collection
-			
-			while items[i] ~= nil and items[i + 1] ~= nil do
-				if items[i] == "collection" then
-					c = setting_decodeString(items[i + 1])
-					segment_ghostSettings_createDefault(c)
-				elseif items[i] == "showAll" then
-					segment_ghostSettings[c].showAll = string.lower(items[i + 1]) == "true"
-				elseif items[i] == "showRecent" then
-					segment_ghostSettings[c].showRecent = tonumber(items[i + 1])
-				elseif items[i] == "showFastest" then
-					segment_ghostSettings[c].showFastest = tonumber(items[i + 1])
-				elseif items[i] == "color" then
-					segment_ghostSettings[c].color = tonumber(items[i + 1])
-				end
-				i = i + 2
+		for i, v in ipairs(globalSettings) do
+			if settingsPackage[v] then
+				_G[v] = settingsPackage[v]
 			end
 		end
+	
+	elseif fileVersion == "settingsVersion: 1" then
+		-- Condition: This is an outdated settings file
+		-- from before JSON was used.
 		
-		if string.starts(t, "controls:") then
-			controls = {}
-		
-			local m = ""--recordingMode
+		while true do
+			local t = f:read()
+			if t == nil then break end
 			
-			local items = string.split(t, " ")
-			local i = 2
+			tryParseSetting(t, "playerName: ", "playerName", "string")
+			tryParseSetting(t, "showBonkCounter: ", "showBonkCounter", "bool")
+			tryParseSetting(t, "showSpeed: ", "showSpeed", "number")
+			tryParseSetting(t, "showGroundSpeed: ", "showGroundSpeed", "number")
+			tryParseSetting(t, "showLogicalSpeed: ", "showLogicalSpeed", "number")
+			tryParseSetting(t, "showSpyroPosition: ", "showSpyroPosition", "number")
+			tryParseSetting(t, "quickUpdatingGems: ", "quickUpdatingGems", "bool")
+			tryParseSetting(t, "showArtisanProps: ", "showArtisanProps", "number")
+			tryParseSetting(t, "showGhostAnimations: ", "showGhostAnimations", "bool")
+			tryParseSetting(t, "currentPalette_name: ", "currentPalette_name", "string")
+			tryParseSetting(t, "recordingMode: ", "recordingMode", "string")
+			tryParseSetting(t, "variant_sparxless: ", "variant_sparxless", "bool")
+			tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
+			tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
+			tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
+			tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
+			tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
+			tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
+			tryParseSetting(t, "segment_comparison_color: ", "segment_comparison_color", "number")
+			tryParseSetting(t, "segment_preloadAllGhosts: ", "segment_preloadAllGhosts", "bool")	
+			tryParseSetting(t, "segment_autoSaveGhosts: ", "segment_autoSaveGhosts", "bool")
+			tryParseSetting(t, "segment_showSubSegmentGhosts: ", "segment_showSubSegmentGhosts", "bool")
 			
-			while items[i] ~= nil and items[i + 1] ~= nil do
-				if items[i] == "m" then
-					m = items[i + 1]
-					controls[m] = {}
-				else
-					controls[m][items[i]] = items[i + 1]
+			if string.starts(t, "segment_ghostSettings:") then
+				segment_ghostSettings = {}
+				
+				local items = string.split(t, " ")
+				local i = 2
+				
+				local c = "Unknown"--collection
+				
+				while items[i] ~= nil and items[i + 1] ~= nil do
+					if items[i] == "collection" then
+						c = setting_decodeString(items[i + 1])
+						segment_ghostSettings_createDefault(c)
+					elseif items[i] == "showAll" then
+						segment_ghostSettings[c].showAll = string.lower(items[i + 1]) == "true"
+					elseif items[i] == "showRecent" then
+						segment_ghostSettings[c].showRecent = tonumber(items[i + 1])
+					elseif items[i] == "showFastest" then
+						segment_ghostSettings[c].showFastest = tonumber(items[i + 1])
+					elseif items[i] == "color" then
+						segment_ghostSettings[c].color = tonumber(items[i + 1])
+					end
+					i = i + 2
 				end
-				i = i + 2
 			end
-		end
-		
-		if string.starts(t, "segment_settings:") then
-			local c = ""
-			local s = ""
-			local last = ""
-			for i,v in ipairs(string.split(t, " ")) do
-				if last == "c" then
-					c = v
-					segment_settings[c] = {}
+			
+			if string.starts(t, "controls:") then
+				controls = {}
+			
+				local m = ""--recordingMode
+				
+				local items = string.split(t, " ")
+				local i = 2
+				
+				while items[i] ~= nil and items[i + 1] ~= nil do
+					if items[i] == "m" then
+						m = items[i + 1]
+						controls[m] = {}
+					else
+						controls[m][items[i]] = items[i + 1]
+					end
+					i = i + 2
 				end
-				if last == "s" then
-					s = v
-					segment_settings[c][s] = {}
-				end
-				if last == "h" then segment_settings[c][s].health = tonumber(v) end
-				if last == "l" then segment_settings[c][s].lives = tonumber(v) end
-				last = v
 			end
+			
+			if string.starts(t, "segment_settings:") then
+				local c = ""
+				local s = ""
+				local last = ""
+				for i,v in ipairs(string.split(t, " ")) do
+					if last == "c" then
+						c = v
+						segment_settings[c] = {}
+					end
+					if last == "s" then
+						s = v
+						segment_settings[c][s] = {}
+					end
+					if last == "h" then segment_settings[c][s].health = tonumber(v) end
+					if last == "l" then segment_settings[c][s].lives = tonumber(v) end
+					last = v
+				end
+			end
+			
 		end
-		
 	end
 	f:close()
 end
