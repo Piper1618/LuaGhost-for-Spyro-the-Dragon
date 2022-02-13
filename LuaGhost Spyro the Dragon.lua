@@ -2203,7 +2203,7 @@ menu_data = {
 			{action = "selectSetting", setting = "120", display = routePrettyNames["120"], description = ""},
 			{action = "selectSetting", setting = "80dragons", display = routePrettyNames["80dragons"], description = ""},
 			{action = "selectSetting", setting = "vortex", display = routePrettyNames["vortex"], description = ""},
-			{action = "onOffSetting", targetVariable = "variant_sparxless", prettyName = "Sparxless", description = "Play without your best friend. No one to pick up gems for you. No one to protect you from damage. It's dangerous to go alone! Good luck."},
+			{action = "onOffSetting", targetVariable = "variant_sparxless", prettyName = "Sparxless", description = "No one to pick up gems for you. No one to protect you from harm. It's dangerous to go alone!"},
 		},
 		closeFunction = function(self)
 			tryRunGlobalFunction("segment_clearData")
