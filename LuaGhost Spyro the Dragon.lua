@@ -2183,8 +2183,7 @@ menu_data = {
 				end,
 			},
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
-			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route."},
-			{action = "changeMenu", target = "warp settings", description = "Change settings that are applied when loading the current segment."},
+			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route. Also access warp settings here."},
 			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
 			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
 			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
@@ -2304,38 +2303,37 @@ menu_data = {
 		items = {
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "health"}, prettyName = "Health", minValue = -1, maxValue = 3, displayFunction = function(value) local lut ={[-1] = "No Change", [0] = "Sparxless", [1] = "Green Sparx", [2] = "Blue Sparx", [3] = "Gold Sparx"} return lut[value] end, description = nil},
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "lives"}, prettyName = "Lives", minValue = -1, maxValue = 99, displayFunction = function(value) if value == -1 then return "No Change" end return value end, description = nil},
-			{action = "function", display = "Delete segment savepoint", description = "Delete the savepoint for this segment in case you need to recreate it. This does not remove ghost data.",
+			{action = "function", display = "Delete segment savestate", description = "Delete the savestate for this segment in case you need to recreate it. This does not remove ghost data.",
 				selectFunction = function(self)
-					local fileName = getGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)})
+					local fileName = getGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(menu_options)})
 					if (fileName or "") ~= "" and file.exists(fileName) then
 						os.remove(fileName)
-						setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, nil)
-						showMessage("Savepoint file removed.")
+						setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(menu_options)}, nil)
+						showMessage("Savestate file removed.")
 					else
-						showMessage("No savepoint file found.")
+						showMessage("No savestate file found.")
 					end
 				end
 			},
 		},
 		openFunction = function(self)
-		
-			-- Detect title screen
-			if inTitleScreen then
-				menu_back()
-				menu_open("notice", {message = "This is not available on the title screen."})
-				return
+			
+			-- If no segment is provided, assume the current one (shouldn't happen in practice)
+			if menu_options == nil then
+				menu_options = currentSegment
 			end
+			
 			-- Detect unknown segment
-			if type((currentSegment or {})[2]) ~= "number" or levelInfo[currentSegment[2]] == nil then
+			if type((menu_options or {})[2]) ~= "number" or levelInfo[menu_options[2]] == nil then
 				menu_back()
 				menu_open("notice", {message = "This segment is not recognized."})
 				return
 			end
 			
-			menu_title = "Warp Settings for " .. levelInfo[currentSegment[2]].name .. " " .. currentSegment[3]
+			menu_title = "Warp Settings for " .. levelInfo[menu_options[2]].name .. " " .. menu_options[3]
 			
 			local category = currentRoute
-			local segment = getSegmentHandle()
+			local segment = getSegmentHandle(menu_options)
 			menu_segmentSettings = menu_segmentSettings or {}
 			segment_settings[category] = segment_settings[category] or {}		
 			segment_settings[category][segment] = segment_settings[category][segment] or {}
@@ -2480,6 +2478,8 @@ menu_data = {
 				menu_populateSegments()
 			end
 			
+			local commonDescription = "Press X to load savestate. Press square to change savestate settings."
+			
 			menu_items = {}
 			
 			if not menu_options then menu_options = 0 end
@@ -2498,7 +2498,7 @@ menu_data = {
 				-- List of levels in current homeworld
 				menu_title = menu_title .. " - " .. levelInfo[menu_options].name
 				if warpMenu_segments[tostring(menu_options) .. "Entry"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Homeworld Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Homeworld Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"World", menu_options, "Entry"},},})
 				end
 				local numberOfLevels = 5
 				if menu_options == 60 then numberOfLevels = 4 end
@@ -2512,19 +2512,19 @@ menu_data = {
 				-- Entry options and settings for currently selected level
 				menu_title = menu_title .. " - " .. levelInfo[menu_options].name
 				if warpMenu_segments[tostring(menu_options) .. "Entry"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Level Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Level Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Entry"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "Balloon"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Balloon", display = "Balloonist Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Balloon", display = "Balloonist Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Balloon"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "Exit"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Exit", display = "Level Exit",})
+					table.insert(menu_items, {action = "loadSegment", target = "Exit", display = "Level Exit", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Exit"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "GameOver"] then
-					table.insert(menu_items, {action = "loadSegment", target = "GameOver", display = "Game Over",})
+					table.insert(menu_items, {action = "loadSegment", target = "GameOver", display = "Game Over", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "GameOver"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "PostCredits"] then
-					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits",})
+					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "PostCredits"},},})
 				end
 				table.insert(menu_items, {action = "back",})
 			end
