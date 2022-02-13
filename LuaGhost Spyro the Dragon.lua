@@ -191,6 +191,8 @@ if true then
 		["vortex"] = "Vortex",
 		["80dragons"] = "80 Dragons",
 	}
+	
+	variant_sparxless = false
 
 	-------------------------
 	-- GUI
@@ -1231,6 +1233,7 @@ function settings_save()
 	f:write("currentPalette_name: ", currentPalette_name, "\n")
 	f:write("recordingMode: ", recordingMode, "\n")
 	f:write("currentRoute: ", currentRoute, "\n")
+	f:write("variant_sparxless: ", variant_sparxless and "True" or "False", "\n")
 	f:write("showDebugMessages: ", showDebugMessages and "True" or "False", "\n")
 	f:write("timeFormat_frames: ", timeFormat_frames and "True" or "False", "\n")
 	f:write("segment_comparison_collection: ", segment_comparison_collection, "\n")
@@ -1301,6 +1304,7 @@ function settings_load()
 		tryParseSetting(t, "showGhostAnimations: ", "showGhostAnimations", "bool")
 		tryParseSetting(t, "currentPalette_name: ", "currentPalette_name", "string")
 		tryParseSetting(t, "recordingMode: ", "recordingMode", "string")
+		tryParseSetting(t, "variant_sparxless: ", "variant_sparxless", "bool")
 		tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
 		tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
 		tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
@@ -1404,6 +1408,9 @@ function getCategoryHandle()
 	-- function MUST return currentRoute unchanged, or
 	-- there will be compatibility problems.
 	local s = currentRoute
+	
+	if variant_sparxless then s = s .. "-sparxless" end
+
 	return s
 end
 
@@ -1411,11 +1418,16 @@ function getCategoryFolderName(route)
 	if route == nil then route = currentRoute end
 	
 	local s = routeFolderNames[currentRoute]
+	
+	if variant_sparxless then s = s .. " Sparxless" end
+	
 	return s
 end
 
 function getCategoryPrettyName()
 	local s = routePrettyNames[currentRoute]
+	
+	if variant_sparxless then s = s .. " Sparxless" end
 	
 	return s
 end
@@ -2191,6 +2203,7 @@ menu_data = {
 			{action = "selectSetting", setting = "120", display = routePrettyNames["120"], description = ""},
 			{action = "selectSetting", setting = "80dragons", display = routePrettyNames["80dragons"], description = ""},
 			{action = "selectSetting", setting = "vortex", display = routePrettyNames["vortex"], description = ""},
+			{action = "onOffSetting", targetVariable = "variant_sparxless", prettyName = "Sparxless", description = "Play without your best friend. No one to pick up gems for you. No one to protect you from damage. It's dangerous to go alone! Good luck."},
 		},
 		closeFunction = function(self)
 			tryRunGlobalFunction("segment_clearData")
@@ -5678,6 +5691,16 @@ while true do
 		onscreenMessages_update()
 	else
 		
+	end
+	
+	-- Stop changes to variants from taking effect until you leave the menu.
+	if menu_state == nil then
+		variant_sparxless_effective = variant_sparxless
+	end
+	
+	-- Apply Sparxless variant
+	if variant_sparxless_effective then
+		memory.write_u16_le(0x078BBC, 0x00)
 	end
 	
 	-- Stop controller inputs from reaching the game while the menu is open.
