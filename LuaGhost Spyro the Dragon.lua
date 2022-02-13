@@ -1616,6 +1616,8 @@ function handleUserInput()
 		
 		if inputs.X.press then
 			menu_select()
+		elseif inputs.square.press then
+			menu_select(true)
 		end
 		
 		if inputs.any_right.menuPress then
@@ -2027,9 +2029,27 @@ function menu_close()
 	settings_save()
 end
 
-function menu_select()
-	--The player has pressed X
+function menu_select(squareSelect)
+	-- squareSelect is true if the user pressed the square button, nil or false otherwise
+	
+	-- The player has pressed X
 	local selectedItem = menu_items[menu_cursor]
+	
+	-- Handle case of user pressing square
+	if squareSelect then
+		if (selectedItem or {}).squareSelect then
+			-- Condition: This menu item has a square
+			-- action, so select it instead of the
+			-- normal action.
+			selectedItem = selectedItem.squareSelect
+		else
+			-- Condition: This menu item has no square
+			-- action, so return without doing anything.
+			return
+		end
+	end
+	
+	-- Handle selected action
 	local selectedAction = (selectedItem or {}).action
 	
 	if selectedAction == "changeMenu" then
