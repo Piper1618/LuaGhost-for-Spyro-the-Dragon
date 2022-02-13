@@ -5700,7 +5700,7 @@ while true do
 	
 	-- Apply Sparxless variant
 	if variant_sparxless_effective then
-		memory.write_u16_le(0x078BBC, 0x00)
+		memory.write_u16_le(0x078BBC + m[4], 0x00)
 	end
 	
 	-- Stop controller inputs from reaching the game while the menu is open.
