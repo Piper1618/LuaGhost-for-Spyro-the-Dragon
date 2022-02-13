@@ -583,7 +583,7 @@ function detectSegmentEvents()
 			--gameState 7 is used on the ending screen
 			--of flight levels, whether successful or not
 			if segment_recording ~= nil then
-			local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
+				local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])			
