@@ -86,6 +86,7 @@ if true then
 			[4] = 0,
 			[5] = 0,
 			homeScreenCheck = 0x800DF20C,
+			pixelRatio = 0.5625,
 		},
 		["PAL"] = {
 			[1] = 0x68C8,
@@ -94,6 +95,7 @@ if true then
 			[4] = 0x6990,
 			[5] = 0x68D0,
 			homeScreenCheck = 0x800DCB88,
+			pixelRatio = 0.6469,
 		},
 	}
 	
@@ -673,6 +675,11 @@ function drawProps()
 		drawArtisanProps()
 	end
 	
+	--Sunny Flight Scanner
+	if showSunnyFlightScanner and currentLevel == 15 and menu_showInputs < 1 then
+		drawSunnyFlightScanner()
+	end
+	
 	--Axis
 	if showSpyroPosition > 0 then
 		spyroX2 = spyroX1
@@ -907,6 +914,135 @@ function drawArtisanProps()
 	--Rotating Ghost
 	if true then
 		drawGhost({84837, 37883, 10687}, emu.framecount() / 60)
+	end
+end
+
+function drawSunnyFlightScanner()
+	-- This function draws a minimap of the area surrounding
+	-- the planes in Sunny Flight. It also shows the
+	-- locations of passing trains, planes, and Spyro. Spyro
+	-- is drawn with a circle surrounding him. Planes will
+	-- move if they are inside this circle or if the camera
+	-- is pointed at them.
+	
+	-- Load map if needed (if it has not yet been loaded)
+	if sunnyFlightScanner_verts == nil then
+		f = assert(io.open(file.combinePath("assets", "Sunny Flight Map.obj"), "r"))
+		sunnyFlightScanner_verts = {}
+		sunnyFlightScanner_lines = {}
+		local sunnyFlightScanner_verts = sunnyFlightScanner_verts
+		local sunnyFlightScanner_lines = sunnyFlightScanner_lines
+		
+		local scale = 1000
+			
+		while true do
+			local t = f:read()
+			if t == nil then break end
+			
+			if bizstring.startswith(t, "v ") then
+				local list = bizstring.split(t, " ")
+				table.insert(sunnyFlightScanner_verts, {math.floor(tonumber(list[2]) * scale), math.floor(tonumber(list[3]) * scale)})
+				
+			elseif bizstring.startswith(t, "l ") then
+				list = bizstring.split(t, " ")
+				local line = {tonumber(list[2]), tonumber(list[3])}
+				table.insert(sunnyFlightScanner_lines, line)
+			end
+		end
+	end
+
+	-- Functions to convert world coordinates into map coordinates
+	local function convertX(x)
+		-- return (x - map_xOrigin) / map_scale + (the location of the map origin on the screen)
+		return (x - 32000) / 500 + border_left
+	end
+	local function convertY(y)
+		-- y is subtracted from map_yOrigin to flip the map vertically.
+		return (170000 - y) * m.pixelRatio / 500 + border_top + ((displayType == "NTSC") and 34 or 42)
+	end
+	
+	-- Function to check if a position is within the map bounds
+	local function isOnMap(x, y)
+		return y > 70000 and y < 170000 and x > 32000 and x < ((y > 110000) and ((y < 155500) and 108000 or 98000) or 92000)
+	end
+	
+	-- Check we're in Sunny Flight
+	if currentLevel == 15 and bit.band(2 ^ gameState, 0x9D) > 0 then
+		-- Initialize variables globally if needed.
+		if not sunnyFlightScanner_plane_lastCoords then sunnyFlightScanner_plane_lastCoords = {{},{},{},{},{},{},{},{},} end
+		if not sunnyFlightScanner_plane_active then sunnyFlightScanner_plane_active = {} end
+		
+		-- Create local references to the global variables for faster access.
+		local sunnyFlightScanner_plane_lastCoords = sunnyFlightScanner_plane_lastCoords
+		local sunnyFlightScanner_plane_active = sunnyFlightScanner_plane_active
+		local sunnyFlightScanner_verts = sunnyFlightScanner_verts
+		
+		-- Draw map
+		for i, v in ipairs(sunnyFlightScanner_lines) do
+			gui.drawLine(convertX(sunnyFlightScanner_verts[v[1]][1]), convertY(sunnyFlightScanner_verts[v[1]][2]), convertX(sunnyFlightScanner_verts[v[2]][1]), convertY(sunnyFlightScanner_verts[v[2]][2], 0xFF000000))
+		end
+		
+		local regionOffset = (displayType == "NTSC") and 0x00 or 0x0994
+		
+		-- Draw the Planes
+		for i = 0, 7 do
+			if memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x48) >= 0 then
+				local px = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x0C)
+				local py = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x10)
+				if gameState == 0 then 
+					sunnyFlightScanner_plane_active[i + 1] = not(sunnyFlightScanner_plane_lastCoords[i + 1].x == px and sunnyFlightScanner_plane_lastCoords[i + 1].y == py)
+					sunnyFlightScanner_plane_lastCoords[i + 1].x = px
+					sunnyFlightScanner_plane_lastCoords[i + 1].y = py
+				end
+				
+				local color = sunnyFlightScanner_plane_active[i + 1] and 0xFFFFFFFF or 0xFFFF0000
+				gui.drawEllipse(convertX(px)-2, convertY(py)-1, 4, 3, 0xFF000000, color)
+			end
+		end
+		
+		-- Draw the Trains
+		for i = 0, 3 do
+			if memory.read_s8(0x80175990 + regionOffset + i * 3 * 0x58 + 0x48) >= 0 then
+				local tx = memory.read_u32_le(0x80175990 + regionOffset + i * 3 * 0x58 + 0x0C)
+				local ty = memory.read_u32_le(0x80175990 + regionOffset + i * 3 * 0x58 + 0x10)
+				if isOnMap(tx, ty) then
+					gui.drawEllipse(convertX(tx)-2, convertY(ty)-1, 4, 3, 0xFF000000, 0xFFFFFFFF)
+				end
+			end
+		end
+		
+		-- Draw Spyro
+		if true then
+			local sx = spyroX
+			local sy = spyroY
+			if isOnMap(sx, sy) then
+				gui.drawEllipse(convertX(sx)-3, convertY(sy)-2, 7, 4, 0xFF300050, 0xFFB080E0)
+				local r = 18000
+				local x = convertX(sx-r)
+				local y = convertY(sy-r)
+				local w = convertX(sx+r)-x
+				local h = convertY(sy+r)-y
+				gui.drawEllipse(x, y, w, h, 0x80300050, 0x00)
+			end
+		end
+		
+		--[[ This code draws guide lines that define the border of the map
+		local function drawV(x, y1, y2)
+			gui.drawLine(convertX(x), convertY(y1), convertX(x), convertY(y2))
+		end
+		local function drawH(y, x1, x2)
+			gui.drawLine(convertX(x1), convertY(y), convertX(x2), convertY(y))
+		end
+		
+		drawH(170000, 0, 108000)
+		 drawH(155500, 0, 108000)
+		drawH(110000, 0, 108000)
+		drawH(70000, 0, 108000)
+		drawV(108000, 70000, 170000)
+		 drawV(98000, 70000, 170000)
+		drawV(92000, 70000, 170000)
+		drawV(32000, 70000, 170000)
+		--]]
 	end
 end
 
@@ -1227,6 +1363,7 @@ if true then
 		"showLogicalSpeed",
 		"quickUpdatingGems",
 		"showArtisanProps",
+		"showSunnyFlightScanner",
 		"showGhostAnimations",
 		"currentPalette_name",
 		"recordingMode",
@@ -2361,6 +2498,7 @@ menu_data = {
 			{action = "offRawSmoothSetting", targetVariable = "showLogicalSpeed", prettyName = "Show Logical Speed", description = "Spyro's speed in the game logic."},
 			{action = "offTrueDelayedSetting", targetVariable = "showSpyroPosition", prettyName = "Show Spyro's Position", description = "Renders a ghost at Spyro's position."},
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
+			{action = "onOffSetting", targetVariable = "showSunnyFlightScanner", prettyName = "Show Sunny Flight Scanner", description = "Show a minimap of the area surrounding the planes in Sunny Flight."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
 			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the game's gem counter update much faster."},
