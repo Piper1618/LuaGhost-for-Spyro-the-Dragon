@@ -4088,6 +4088,7 @@ function populateFileList()
 			
 			addNewGhostMeta(loadedGhostDataCache[fullPath])
 			cachedGhostData[fullPath] = loadedGhostDataCache[fullPath]
+			collections[loadedGhostDataCache[fullPath].collection] = true
 			ghostIsValid = true
 		else
 			-- Condition: we have no record of seeing this file before, so open the file to investigate
