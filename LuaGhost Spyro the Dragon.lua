@@ -103,8 +103,9 @@ if true then
 		framerate = 60
 		m = memoryAddresses["NTSC"]
 		
-		FOVx = 1.25
-		FOVy = 1.77
+		FOVx = 1.22
+		FOVy = 1.78
+		screen_yOffset = 0
 
 		screen_width = 560
 		screen_height = 240
@@ -119,8 +120,9 @@ if true then
 		framerate = 50
 		m = memoryAddresses["PAL"]
 		
-		FOVx = 1.21
-		FOVy = 1.52
+		FOVx = 1.22
+		FOVy = 1.48
+		screen_yOffset = -1
 		
 		screen_width = 560
 		screen_height = 288
@@ -881,16 +883,16 @@ function drawArtisanProps()
 	--Pyramid
 	if true then
 		--ring
-		local v1 = {76851, 50173, 7270-spyroZOffset}
-		local v2 = {77229, 49108, 7270-spyroZOffset}
-		local v3 = {76752, 48116, 7270-spyroZOffset}
-		local v4 = {75690, 47731, 7270-spyroZOffset}
-		local v5 = {74692, 48116, 7270-spyroZOffset}
-		local v6 = {74302, 49233, 7270-spyroZOffset}
-		local v7 = {74764, 50143, 7270-spyroZOffset}
-		local v8 = {75810, 50591, 7270-spyroZOffset}
+		local v1 = {76864, 50240, 6912}
+		local v2 = {77312, 49152, 6912}
+		local v3 = {76864, 48064, 6912}
+		local v4 = {75776, 47616, 6912}
+		local v5 = {74688, 48064, 6912}
+		local v6 = {74240, 49152, 6912}
+		local v7 = {74688, 50240, 6912}
+		local v8 = {75776, 50688, 6912}
 		--top
-		local v9 = {75694, 49221, 9000-spyroZOffset}
+		local v9 = {75694, 49152, 8992}
 
 		drawLine_worldVector(v1, v2)
 		drawLine_worldVector(v2, v3)
@@ -1069,7 +1071,7 @@ function worldSpaceToScreenSpace(x, y, z)
 	
 	--screen should vary from 0 to width/height (560/240)
 	local screenX = (viewportX * -screen_halfWidth) + screen_halfWidth
-	local screenY = (viewportY * -screen_halfHeight) + screen_halfHeight
+	local screenY = (viewportY * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	
 	return screenX, screenY
 end
@@ -1125,13 +1127,13 @@ function drawLine_world (x1, y1, z1, x2, y2, z2)
 	local viewportX1 = (pitchedY1 / pitchedX1) * FOVx
 	local viewportY1  = (pitchedZ1 / pitchedX1) * FOVy
 	local viewportX2 = (pitchedY2 / pitchedX2) * FOVx
-	local viewportY2  = (pitchedZ2 / pitchedX2)*FOVy
+	local viewportY2  = (pitchedZ2 / pitchedX2) * FOVy
 	
 	--screen should vary from 0 to width/height (560/240)
 	local screenX1 = (viewportX1 * -screen_halfWidth) + screen_halfWidth
-	local screenY1 = (viewportY1 * -screen_halfHeight) + screen_halfHeight
+	local screenY1 = (viewportY1 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	local screenX2 = (viewportX2 * -screen_halfWidth) + screen_halfWidth
-	local screenY2 = (viewportY2 * -screen_halfHeight) + screen_halfHeight
+	local screenY2 = (viewportY2 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	
 	drawLine_screen(screenX1, screenY1, screenX2, screenY2)	
 	
