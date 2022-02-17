@@ -1542,13 +1542,13 @@ function tryParseSetting(str, prefix, targetVariable, Type)
 	end
 end
 
-function getCategoryHandle()
+function getCategoryHandle(level)
 	-- Important: if no category variants are set, this
 	-- function MUST return currentRoute unchanged, or
 	-- there will be compatibility problems.
 	local s = currentRoute
 	
-	if variant_sparxless then s = s .. "-sparxless" end
+	if variant_sparxless and not levelInfo[level].flightLevel then s = s .. "-sparxless" end
 
 	return s
 end
@@ -1556,9 +1556,16 @@ end
 function getCategoryFolderName(route)
 	if route == nil then route = currentRoute end
 	
+	local catList = string.split(route, "-")
+	route = catList[1]
+	local variants = {}
+	for i = 2, #catList do
+		variants[catList[i]] = true
+	end
+	
 	local s = routeFolderNames[currentRoute]
 	
-	if variant_sparxless then s = s .. " Sparxless" end
+	if variants.sparxless then s = s .. " Sparxless" end
 	
 	return s
 end
@@ -3777,7 +3784,7 @@ function segment_loadGhosts()
 	-- For each collection, load some ghosts from it (maybe).
 	for collectionName in pairs(collections) do
 				
-		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(), segmentToString(currentSegment), collectionName})
+		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment[2]), segmentToString(currentSegment), collectionName})
 		
 		if type(collection) == "table" then
 		
@@ -3818,7 +3825,7 @@ function segment_loadGhosts()
 	end
 	
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
-	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
+	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment[2]), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
 	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
 	if Ghost.isGhost(ghost) then
@@ -4306,7 +4313,7 @@ function Ghost.startNewRecording()
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
 	newRecording.mode = recordingMode
-	newRecording.category = getCategoryHandle()
+	newRecording.category = getCategoryHandle(currentSegment[2])
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
