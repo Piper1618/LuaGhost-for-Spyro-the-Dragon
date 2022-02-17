@@ -1542,13 +1542,13 @@ function tryParseSetting(str, prefix, targetVariable, Type)
 	end
 end
 
-function getCategoryHandle(level)
+function getCategoryHandle(segment)
 	-- Important: if no category variants are set, this
 	-- function MUST return currentRoute unchanged, or
 	-- there will be compatibility problems.
 	local s = currentRoute
 	
-	if variant_sparxless and not levelInfo[level].flightLevel then s = s .. "-sparxless" end
+	if variant_sparxless and not (segment[3] == "Entry" and levelInfo[segment[2]].flightLevel) then s = s .. "-sparxless" end
 
 	return s
 end
@@ -3784,7 +3784,7 @@ function segment_loadGhosts()
 	-- For each collection, load some ghosts from it (maybe).
 	for collectionName in pairs(collections) do
 				
-		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment[2]), segmentToString(currentSegment), collectionName})
+		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
 		
 		if type(collection) == "table" then
 		
@@ -3825,7 +3825,7 @@ function segment_loadGhosts()
 	end
 	
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
-	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment[2]), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
+	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
 	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
 	if Ghost.isGhost(ghost) then
@@ -3868,7 +3868,6 @@ function segment_start()
 	segment_dragonSplitArmed = false
 	
 	segment_recording = Ghost.startNewRecording()
-	segment_recording.segment = currentSegment
 
 	for i, ghost in ipairs(segment_ghosts) do
 		if Ghost.isGhost(ghost) then
@@ -4313,7 +4312,7 @@ function Ghost.startNewRecording()
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
 	newRecording.mode = recordingMode
-	newRecording.category = getCategoryHandle(currentSegment[2])
+	newRecording.category = getCategoryHandle(getCurrentSegment())
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
@@ -5487,6 +5486,7 @@ function getCurrentSegment()
 	o[1] = currentSegment[1]
 	o[2] = currentSegment[2]
 	o[3] = currentSegment[3]
+	return o
 end
 
 function segmentToString(segmentTable)
