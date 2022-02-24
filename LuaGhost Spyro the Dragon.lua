@@ -1004,25 +1004,25 @@ function drawSunnyFlightScanner()
 		local regionOffset = (displayType == "NTSC") and 0x00 or 0x0994
 		
 		-- Spyro's coordinates
-		local sx = memory.read_u32_le(0x80078A58 + m[4])
-		local sy = memory.read_u32_le(0x80078A5C + m[4])
+		local sx = memory.read_u32_le(0x078A58 + m[4])
+		local sy = memory.read_u32_le(0x078A5C + m[4])
 		
 		-- Draw the Planes
 		for i = 0, 7 do
-			if memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x18) == 0 then
-				local px = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x0C)
-				local py = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x10)
+			if memory.read_s8(0x1756D0 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x18) == 0 then
+				local px = memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x0C)
+				local py = memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x10)
 				
-				local color = (memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x51) > 0 or (math.sqrt((px - sx) ^ 2 + (py - sy) ^ 2) < 0x4000)) and 0xFFFFFFFF or 0xFFFF0000
-				drawDart(convertX(px), convertY(py), memory.read_u8(0x801756D0 + regionOffset + i * 0x58 + 0x46) * 2 * math.pi / 256, 8, 4, 0xFF000000, color)
+				local color = (memory.read_s8(0x1756D0 + regionOffset + i * 0x58 + 0x51) > 0 or (math.sqrt((px - sx) ^ 2 + (py - sy) ^ 2) < 0x4000)) and 0xFFFFFFFF or 0xFFFF0000
+				drawDart(convertX(px), convertY(py), memory.read_u8(0x1756D0 + regionOffset + i * 0x58 + 0x46) * 2 * math.pi / 256, 8, 4, 0xFF000000, color)
 			end
 		end
 		
 		-- Draw the Trains
 		for i = 11, 0, -1 do -- Counting backwards so the front of each train is drawn last.
-			if memory.read_s8(0x80175990 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x18) == 0 then
-				local tx = memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x0C)
-				local ty = memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x10)
+			if memory.read_s8(0x175990 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x18) == 0 then
+				local tx = memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x0C)
+				local ty = memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x10)
 				if isOnMap(tx, ty) then
 					gui.drawEllipse(convertX(tx)-3, convertY(ty)-2, 6, 4, 0xFF000000, (i % 3 == 0) and 0xFFA0A0A0 or 0xFFA04010)
 				end
