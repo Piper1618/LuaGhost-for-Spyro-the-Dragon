@@ -9,7 +9,7 @@
 ----
 -------------------------
 
-_LuaGhostVersion = "1.0"
+_LuaGhostVersion = "1.1.0"
 
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
