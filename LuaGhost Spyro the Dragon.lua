@@ -9,7 +9,7 @@
 ----
 -------------------------
 
-_LuaGhostVersion = "1.0"
+_LuaGhostVersion = "1.1.0"
 
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
@@ -51,6 +51,7 @@ if true then
 	loadLib("bizHawkLuaUtility")
 	file = loadLib("file")
 	inputs = loadLib("inputs")
+	JSON = assert(loadfile [[libs\JSON.lua]])()
 
 	--Return the path to its default state, in case
 	--anything else needs it to be that way.
@@ -85,6 +86,7 @@ if true then
 			[4] = 0,
 			[5] = 0,
 			homeScreenCheck = 0x800DF20C,
+			pixelRatio = 0.5625,
 		},
 		["PAL"] = {
 			[1] = 0x68C8,
@@ -93,6 +95,7 @@ if true then
 			[4] = 0x6990,
 			[5] = 0x68D0,
 			homeScreenCheck = 0x800DCB88,
+			pixelRatio = 0.6469,
 		},
 	}
 	
@@ -100,8 +103,9 @@ if true then
 		framerate = 60
 		m = memoryAddresses["NTSC"]
 		
-		FOVx = 1.25
-		FOVy = 1.77
+		FOVx = 1.22
+		FOVy = 1.78
+		screen_yOffset = 0
 
 		screen_width = 560
 		screen_height = 240
@@ -116,8 +120,9 @@ if true then
 		framerate = 50
 		m = memoryAddresses["PAL"]
 		
-		FOVx = 1.21
-		FOVy = 1.52
+		FOVx = 1.22
+		FOVy = 1.48
+		screen_yOffset = -1
 		
 		screen_width = 560
 		screen_height = 288
@@ -190,6 +195,8 @@ if true then
 		["vortex"] = "Vortex",
 		["80dragons"] = "80 Dragons",
 	}
+	
+	variant_sparxless = false
 
 	-------------------------
 	-- GUI
@@ -582,7 +589,7 @@ function detectSegmentEvents()
 			--gameState 7 is used on the ending screen
 			--of flight levels, whether successful or not
 			if segment_recording ~= nil then
-			local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
+				local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
 				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])			
@@ -643,6 +650,7 @@ end
 if true then
 	showSpyroPosition = 0
 	showArtisanProps = 0
+	showSunnyFlightScanner = false
 	
 	showBonkCounter = false
 	bonkCounter = 0
@@ -668,6 +676,11 @@ function drawProps()
 	--Artisans Props
 	if showArtisanProps == 2 or (showArtisanProps == 1 and currentLevel == 10) then
 		drawArtisanProps()
+	end
+	
+	--Sunny Flight Scanner
+	if showSunnyFlightScanner and currentLevel == 15 and menu_showInputs < 1 then
+		drawSunnyFlightScanner()
 	end
 	
 	--Axis
@@ -871,16 +884,16 @@ function drawArtisanProps()
 	--Pyramid
 	if true then
 		--ring
-		local v1 = {76851, 50173, 7270-spyroZOffset}
-		local v2 = {77229, 49108, 7270-spyroZOffset}
-		local v3 = {76752, 48116, 7270-spyroZOffset}
-		local v4 = {75690, 47731, 7270-spyroZOffset}
-		local v5 = {74692, 48116, 7270-spyroZOffset}
-		local v6 = {74302, 49233, 7270-spyroZOffset}
-		local v7 = {74764, 50143, 7270-spyroZOffset}
-		local v8 = {75810, 50591, 7270-spyroZOffset}
+		local v1 = {76864, 50240, 6912}
+		local v2 = {77312, 49152, 6912}
+		local v3 = {76864, 48064, 6912}
+		local v4 = {75776, 47616, 6912}
+		local v5 = {74688, 48064, 6912}
+		local v6 = {74240, 49152, 6912}
+		local v7 = {74688, 50240, 6912}
+		local v8 = {75776, 50688, 6912}
 		--top
-		local v9 = {75694, 49221, 9000-spyroZOffset}
+		local v9 = {75694, 49152, 8992}
 
 		drawLine_worldVector(v1, v2)
 		drawLine_worldVector(v2, v3)
@@ -907,6 +920,148 @@ function drawArtisanProps()
 	end
 end
 
+function drawSunnyFlightScanner()
+	-- This function draws a minimap of the area surrounding
+	-- the planes in Sunny Flight. It also shows the
+	-- locations of passing trains, planes, and Spyro. Spyro
+	-- is drawn with a circle surrounding him. Planes will
+	-- move if they are inside this circle or if the camera
+	-- is pointed at them.
+	
+	-- Load map if needed (if it has not yet been loaded)
+	if sunnyFlightScanner_verts == nil then
+		f = assert(io.open(file.combinePath("assets", "Sunny Flight Map.obj"), "r"))
+		sunnyFlightScanner_verts = {}
+		sunnyFlightScanner_lines = {}
+		local sunnyFlightScanner_verts = sunnyFlightScanner_verts
+		local sunnyFlightScanner_lines = sunnyFlightScanner_lines
+		
+		local scale = 1000
+			
+		while true do
+			local t = f:read()
+			if t == nil then break end
+			
+			if bizstring.startswith(t, "v ") then
+				local list = bizstring.split(t, " ")
+				table.insert(sunnyFlightScanner_verts, {math.floor(tonumber(list[2]) * scale), math.floor(tonumber(list[3]) * scale)})
+				
+			elseif bizstring.startswith(t, "l ") then
+				list = bizstring.split(t, " ")
+				local line = {tonumber(list[2]), tonumber(list[3])}
+				table.insert(sunnyFlightScanner_lines, line)
+			end
+		end
+	end
+
+	-- Functions to convert world coordinates into map coordinates
+	local function convertX(x)
+		-- return (x - map_xOrigin) / map_scale + (the location of the map origin on the screen)
+		return (x - 32000) / 500 + border_left
+	end
+	local function convertY(y)
+		-- y is subtracted from map_yOrigin to flip the map vertically.
+		return (170000 - y) * m.pixelRatio / 500 + border_top + ((displayType == "NTSC") and 34 or 42)
+	end
+	
+	-- Function to check if a position is within the map bounds
+	local function isOnMap(x, y)
+		return y > 70000 and y < 170000 and x > 32000 and x < ((y > 110000) and ((y < 155500) and 108000 or 98000) or 92000)
+	end
+	
+	-- Draw a triangle at the x, y screen coordinates
+	local function drawDart(x, y, direction, length, width, lineColor, backColor)
+		-- direction is in radians
+	
+		local pointer = {{length, 0}, {-length * 2 / 3, width}, {-length * 2 / 3, -width}}
+		local rotatedPointer = {}
+		for i, v in ipairs(pointer) do
+			table.insert(rotatedPointer, {
+				math.cos(direction) * v[1] + math.sin(direction) * v[2],
+				(math.cos(direction) * v[2] - math.sin(direction) * v[1]) * m.pixelRatio,
+			})
+		end
+		gui.drawPolygon(rotatedPointer, x, y, 0, backColor)
+		gui.drawPolygon(rotatedPointer, x, y, lineColor, 0)
+	end
+	
+	-- Check we're in Sunny Flight
+	if currentLevel == 15 and bit.band(2 ^ gameState, 0x9D) > 0 then
+		-- Initialize variables globally if needed.
+		if not sunnyFlightScanner_plane_lastCoords then sunnyFlightScanner_plane_lastCoords = {{},{},{},{},{},{},{},{},} end
+		if not sunnyFlightScanner_plane_active then sunnyFlightScanner_plane_active = {} end
+		
+		-- Create local references to the global variables for faster access.
+		local sunnyFlightScanner_plane_lastCoords = sunnyFlightScanner_plane_lastCoords
+		local sunnyFlightScanner_plane_active = sunnyFlightScanner_plane_active
+		local sunnyFlightScanner_verts = sunnyFlightScanner_verts
+		
+		-- Draw map
+		for i, v in ipairs(sunnyFlightScanner_lines) do
+			gui.drawLine(convertX(sunnyFlightScanner_verts[v[1]][1]), convertY(sunnyFlightScanner_verts[v[1]][2]), convertX(sunnyFlightScanner_verts[v[2]][1]), convertY(sunnyFlightScanner_verts[v[2]][2], 0xFF000000))
+		end
+		
+		local regionOffset = (displayType == "NTSC") and 0x00 or 0x0994
+		
+		-- Spyro's coordinates
+		local sx = memory.read_u32_le(0x078A58 + m[4])
+		local sy = memory.read_u32_le(0x078A5C + m[4])
+		
+		-- Draw the Planes
+		for i = 0, 7 do
+			if memory.read_s8(0x1756D0 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x18) == 0 then
+				local px = memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x0C)
+				local py = memory.read_u32_le(0x1756D0 + regionOffset + i * 0x58 + 0x10)
+				
+				local color = (memory.read_s8(0x1756D0 + regionOffset + i * 0x58 + 0x51) > 0 or (math.sqrt((px - sx) ^ 2 + (py - sy) ^ 2) < 0x4000)) and 0xFFFFFFFF or 0xFFFF0000
+				drawDart(convertX(px), convertY(py), memory.read_u8(0x1756D0 + regionOffset + i * 0x58 + 0x46) * 2 * math.pi / 256, 8, 4, 0xFF000000, color)
+			end
+		end
+		
+		-- Draw the Trains
+		for i = 11, 0, -1 do -- Counting backwards so the front of each train is drawn last.
+			if memory.read_s8(0x175990 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x18) == 0 then
+				local tx = memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x0C)
+				local ty = memory.read_u32_le(0x175990 + regionOffset + i * 0x58 + 0x10)
+				if isOnMap(tx, ty) then
+					gui.drawEllipse(convertX(tx)-3, convertY(ty)-2, 6, 4, 0xFF000000, (i % 3 == 0) and 0xFFA0A0A0 or 0xFFA04010)
+				end
+			end
+		end
+		
+		-- Draw Spyro
+		if true then
+			if isOnMap(sx, sy) then
+				drawDart(convertX(sx), convertY(sy), memory.read_u8(0x078A66 + m[4]) * 2 * math.pi / 256, 5, 8, 0xFF300050, 0xFFB080E0)
+				local r = 0x4000
+				local x = convertX(sx-r)
+				local y = convertY(sy-r)
+				local w = convertX(sx+r)-x
+				local h = convertY(sy+r)-y
+				gui.drawEllipse(x, y, w, h, 0x80300050, 0x00)
+			end
+		end
+		
+		--[[ This code draws guide lines that define the border of the map
+		local function drawV(x, y1, y2)
+			gui.drawLine(convertX(x), convertY(y1), convertX(x), convertY(y2))
+		end
+		local function drawH(y, x1, x2)
+			gui.drawLine(convertX(x1), convertY(y), convertX(x2), convertY(y))
+		end
+		
+		drawH(170000, 0, 108000)
+		 drawH(155500, 0, 108000)
+		drawH(110000, 0, 108000)
+		drawH(70000, 0, 108000)
+		drawV(108000, 70000, 170000)
+		 drawV(98000, 70000, 170000)
+		drawV(92000, 70000, 170000)
+		drawV(32000, 70000, 170000)
+		--]]
+	end
+end
+
 function worldSpaceToScreenSpace(x, y, z)
 	local relativeX = x - cameraX
 	local relativeY = y - cameraY
@@ -930,7 +1085,7 @@ function worldSpaceToScreenSpace(x, y, z)
 	
 	--screen should vary from 0 to width/height (560/240)
 	local screenX = (viewportX * -screen_halfWidth) + screen_halfWidth
-	local screenY = (viewportY * -screen_halfHeight) + screen_halfHeight
+	local screenY = (viewportY * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	
 	return screenX, screenY
 end
@@ -986,13 +1141,13 @@ function drawLine_world (x1, y1, z1, x2, y2, z2)
 	local viewportX1 = (pitchedY1 / pitchedX1) * FOVx
 	local viewportY1  = (pitchedZ1 / pitchedX1) * FOVy
 	local viewportX2 = (pitchedY2 / pitchedX2) * FOVx
-	local viewportY2  = (pitchedZ2 / pitchedX2)*FOVy
+	local viewportY2  = (pitchedZ2 / pitchedX2) * FOVy
 	
 	--screen should vary from 0 to width/height (560/240)
 	local screenX1 = (viewportX1 * -screen_halfWidth) + screen_halfWidth
-	local screenY1 = (viewportY1 * -screen_halfHeight) + screen_halfHeight
+	local screenY1 = (viewportY1 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	local screenX2 = (viewportX2 * -screen_halfWidth) + screen_halfWidth
-	local screenY2 = (viewportY2 * -screen_halfHeight) + screen_halfHeight
+	local screenY2 = (viewportY2 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
 	
 	drawLine_screen(screenX1, screenY1, screenX2, screenY2)	
 	
@@ -1213,70 +1368,50 @@ if true then
 	playerName = defaultPlayerName
 	
 	quickUpdatingGems = false
+	
+	-- A list of the global variables that will be saved to settings.txt
+	globalSettings = {
+		"playerName",
+		"showSpyroPosition",
+		"showBonkCounter",
+		"showSpeed",
+		"showGroundSpeed",
+		"showLogicalSpeed",
+		"quickUpdatingGems",
+		"showArtisanProps",
+		"showSunnyFlightScanner",
+		"showGhostAnimations",
+		"currentPalette_name",
+		"recordingMode",
+		"currentRoute",
+		"variant_sparxless",
+		"showDebugMessages",
+		"timeFormat_frames",
+		"segment_comparison_collection",
+		"segment_comparison_target",
+		"segment_comparison_useColor",
+		"segment_comparison_color",
+		"segment_preloadAllGhosts",
+		"segment_autoSaveGhosts",
+		"segment_showSubSegmentGhosts",
+		"controls",
+		"segment_settings",
+	}
 end
 
 function settings_save()
+	
+	local settingsPackage = {}
+	
+	for i, v in ipairs(globalSettings) do
+		settingsPackage[v] = _G[v]
+	end
+	
 	local f = assert(io.open(settings_file, "w"))
-	f:write("settingsVersion: 1", "\n")
-	f:write("playerName: ", tostring(playerName), "\n")
-	f:write("showSpyroPosition: ", tostring(showSpyroPosition), "\n")
-	f:write("showBonkCounter: ", tostring(showBonkCounter), "\n")
-	f:write("showSpeed: ", tostring(showSpeed), "\n")
-	f:write("showGroundSpeed: ", tostring(showGroundSpeed), "\n")
-	f:write("showLogicalSpeed: ", tostring(showLogicalSpeed), "\n")
-	f:write("quickUpdatingGems: ", tostring(quickUpdatingGems), "\n")
-	f:write("showArtisanProps: ", tostring(showArtisanProps), "\n")
-	f:write("showGhostAnimations: ", showGhostAnimations and "True" or "False", "\n")
-	f:write("currentPalette_name: ", currentPalette_name, "\n")
-	f:write("recordingMode: ", recordingMode, "\n")
-	f:write("currentRoute: ", currentRoute, "\n")
-	f:write("showDebugMessages: ", showDebugMessages and "True" or "False", "\n")
-	f:write("timeFormat_frames: ", timeFormat_frames and "True" or "False", "\n")
-	f:write("segment_comparison_collection: ", segment_comparison_collection, "\n")
-	f:write("segment_comparison_target: ", segment_comparison_target, "\n")
-	f:write("segment_comparison_useColor: ", segment_comparison_useColor and "True" or "False", "\n")
-	f:write("segment_comparison_color: ", string.format("0x%X", segment_comparison_color), "\n")
-	f:write("segment_preloadAllGhosts: ", segment_preloadAllGhosts and "True" or "False", "\n")
-	f:write("segment_autoSaveGhosts: ", segment_autoSaveGhosts and "True" or "False", "\n")
-	f:write("segment_showSubSegmentGhosts: ", segment_showSubSegmentGhosts and "True" or "False", "\n")
-		
-	--[[
-	f:write("segment_ghostSettings: ")
-	for c in pairs(segment_ghostSettings) do
-		f:write(
-			"collection ", setting_encodeString(c), " ",
-			"showAll ", (segment_ghostSettings[c].showAll or false) and "True" or "False", " ",
-			"showRecent ", tostring(segment_ghostSettings[c].showRecent or 0), " ",
-			"showFastest ", tostring(segment_ghostSettings[c].showFastest or 0), " ",
-			"color ", string.format("0x%X", segment_ghostSettings[c].color or 0), " "
-		)
-	end
-	f:write("\n")
-	--]]
-	
-	f:write("controls: ")
-	for m in pairs(controls) do--recording mode
-		f:write("m " .. m .. " ")
-		for c, v in pairs(controls[m]) do--control
-			if (v or "") ~= "" then
-				f:write(tostring(c) .. " " .. tostring(v) .. " ")
-			end
-		end
-	end
-	f:write("\n")
-	
-	f:write("segment_settings: ")
-	for c in pairs(segment_settings) do
-		f:write("c " .. c .. " ")
-		for s in pairs(segment_settings[c]) do
-			f:write("s " .. s .. " ")
-			if segment_settings[c][s].health ~= nil then f:write("h " .. tostring(segment_settings[c][s].health) .. " ") end
-			if segment_settings[c][s].lives ~= nil then f:write("l " .. tostring(segment_settings[c][s].lives) .. " ") end
-		end
-	end
-	f:write("\n")	
-	
+	f:write("settingsVersion: 2", "\n")
+	f:write(JSON:encode_pretty(settingsPackage))
 	f:close()
+	
 end
 
 function settings_load()
@@ -1285,95 +1420,118 @@ function settings_load()
 	segment_settings = {}
 	
 	local f = assert(io.open(settings_file, "r"))
-	while true do
-		local t = f:read()
-		if t == nil then break end
+	
+	local fileVersion = f:read()
+	
+	if fileVersion == "settingsVersion: 2" then
+		-- Condition: This is the first version of settings
+		-- file to use JSON encoding. Adding new global
+		-- settings is now as simple as adding the global
+		-- variable names to the globalSettings array.
 		
-		tryParseSetting(t, "playerName: ", "playerName", "string")
-		tryParseSetting(t, "showBonkCounter: ", "showBonkCounter", "bool")
-		tryParseSetting(t, "showSpeed: ", "showSpeed", "number")
-		tryParseSetting(t, "showGroundSpeed: ", "showGroundSpeed", "number")
-		tryParseSetting(t, "showLogicalSpeed: ", "showLogicalSpeed", "number")
-		tryParseSetting(t, "showSpyroPosition: ", "showSpyroPosition", "number")
-		tryParseSetting(t, "quickUpdatingGems: ", "quickUpdatingGems", "bool")
-		tryParseSetting(t, "showArtisanProps: ", "showArtisanProps", "number")
-		tryParseSetting(t, "showGhostAnimations: ", "showGhostAnimations", "bool")
-		tryParseSetting(t, "currentPalette_name: ", "currentPalette_name", "string")
-		tryParseSetting(t, "recordingMode: ", "recordingMode", "string")
-		tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
-		tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
-		tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
-		tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
-		tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
-		tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
-		tryParseSetting(t, "segment_comparison_color: ", "segment_comparison_color", "number")
-		tryParseSetting(t, "segment_preloadAllGhosts: ", "segment_preloadAllGhosts", "bool")	
-		tryParseSetting(t, "segment_autoSaveGhosts: ", "segment_autoSaveGhosts", "bool")
-		tryParseSetting(t, "segment_showSubSegmentGhosts: ", "segment_showSubSegmentGhosts", "bool")
+		local settingsPackage = JSON:decode(f:read("*a"))
 		
-		if string.starts(t, "segment_ghostSettings:") then
-			segment_ghostSettings = {}
-			
-			local items = string.split(t, " ")
-			local i = 2
-			
-			local c = "Unknown"--collection
-			
-			while items[i] ~= nil and items[i + 1] ~= nil do
-				if items[i] == "collection" then
-					c = setting_decodeString(items[i + 1])
-					segment_ghostSettings_createDefault(c)
-				elseif items[i] == "showAll" then
-					segment_ghostSettings[c].showAll = string.lower(items[i + 1]) == "true"
-				elseif items[i] == "showRecent" then
-					segment_ghostSettings[c].showRecent = tonumber(items[i + 1])
-				elseif items[i] == "showFastest" then
-					segment_ghostSettings[c].showFastest = tonumber(items[i + 1])
-				elseif items[i] == "color" then
-					segment_ghostSettings[c].color = tonumber(items[i + 1])
-				end
-				i = i + 2
+		for i, v in ipairs(globalSettings) do
+			if settingsPackage[v] then
+				_G[v] = settingsPackage[v]
 			end
 		end
+	
+	elseif fileVersion == "settingsVersion: 1" then
+		-- Condition: This is an outdated settings file
+		-- from before JSON was used.
 		
-		if string.starts(t, "controls:") then
-			controls = {}
-		
-			local m = ""--recordingMode
+		while true do
+			local t = f:read()
+			if t == nil then break end
 			
-			local items = string.split(t, " ")
-			local i = 2
+			tryParseSetting(t, "playerName: ", "playerName", "string")
+			tryParseSetting(t, "showBonkCounter: ", "showBonkCounter", "bool")
+			tryParseSetting(t, "showSpeed: ", "showSpeed", "number")
+			tryParseSetting(t, "showGroundSpeed: ", "showGroundSpeed", "number")
+			tryParseSetting(t, "showLogicalSpeed: ", "showLogicalSpeed", "number")
+			tryParseSetting(t, "showSpyroPosition: ", "showSpyroPosition", "number")
+			tryParseSetting(t, "quickUpdatingGems: ", "quickUpdatingGems", "bool")
+			tryParseSetting(t, "showArtisanProps: ", "showArtisanProps", "number")
+			tryParseSetting(t, "showGhostAnimations: ", "showGhostAnimations", "bool")
+			tryParseSetting(t, "currentPalette_name: ", "currentPalette_name", "string")
+			tryParseSetting(t, "recordingMode: ", "recordingMode", "string")
+			tryParseSetting(t, "variant_sparxless: ", "variant_sparxless", "bool")
+			tryParseSetting(t, "currentRoute: ", "currentRoute", "string")
+			tryParseSetting(t, "showDebugMessages: ", "showDebugMessages", "bool")
+			tryParseSetting(t, "timeFormat_frames: ", "timeFormat_frames", "bool")
+			tryParseSetting(t, "segment_comparison_collection: ", "segment_comparison_collection", "string")
+			tryParseSetting(t, "segment_comparison_target: ", "segment_comparison_target", "string")
+			tryParseSetting(t, "segment_comparison_useColor: ", "segment_comparison_useColor", "bool")
+			tryParseSetting(t, "segment_comparison_color: ", "segment_comparison_color", "number")
+			tryParseSetting(t, "segment_preloadAllGhosts: ", "segment_preloadAllGhosts", "bool")	
+			tryParseSetting(t, "segment_autoSaveGhosts: ", "segment_autoSaveGhosts", "bool")
+			tryParseSetting(t, "segment_showSubSegmentGhosts: ", "segment_showSubSegmentGhosts", "bool")
 			
-			while items[i] ~= nil and items[i + 1] ~= nil do
-				if items[i] == "m" then
-					m = items[i + 1]
-					controls[m] = {}
-				else
-					controls[m][items[i]] = items[i + 1]
+			if string.starts(t, "segment_ghostSettings:") then
+				segment_ghostSettings = {}
+				
+				local items = string.split(t, " ")
+				local i = 2
+				
+				local c = "Unknown"--collection
+				
+				while items[i] ~= nil and items[i + 1] ~= nil do
+					if items[i] == "collection" then
+						c = setting_decodeString(items[i + 1])
+						segment_ghostSettings_createDefault(c)
+					elseif items[i] == "showAll" then
+						segment_ghostSettings[c].showAll = string.lower(items[i + 1]) == "true"
+					elseif items[i] == "showRecent" then
+						segment_ghostSettings[c].showRecent = tonumber(items[i + 1])
+					elseif items[i] == "showFastest" then
+						segment_ghostSettings[c].showFastest = tonumber(items[i + 1])
+					elseif items[i] == "color" then
+						segment_ghostSettings[c].color = tonumber(items[i + 1])
+					end
+					i = i + 2
 				end
-				i = i + 2
 			end
-		end
-		
-		if string.starts(t, "segment_settings:") then
-			local c = ""
-			local s = ""
-			local last = ""
-			for i,v in ipairs(string.split(t, " ")) do
-				if last == "c" then
-					c = v
-					segment_settings[c] = {}
+			
+			if string.starts(t, "controls:") then
+				controls = {}
+			
+				local m = ""--recordingMode
+				
+				local items = string.split(t, " ")
+				local i = 2
+				
+				while items[i] ~= nil and items[i + 1] ~= nil do
+					if items[i] == "m" then
+						m = items[i + 1]
+						controls[m] = {}
+					else
+						controls[m][items[i]] = items[i + 1]
+					end
+					i = i + 2
 				end
-				if last == "s" then
-					s = v
-					segment_settings[c][s] = {}
-				end
-				if last == "h" then segment_settings[c][s].health = tonumber(v) end
-				if last == "l" then segment_settings[c][s].lives = tonumber(v) end
-				last = v
 			end
+			
+			if string.starts(t, "segment_settings:") then
+				local c = ""
+				local s = ""
+				local last = ""
+				for i,v in ipairs(string.split(t, " ")) do
+					if last == "c" then
+						c = v
+						segment_settings[c] = {}
+					end
+					if last == "s" then
+						s = v
+						segment_settings[c][s] = {}
+					end
+					if last == "h" then segment_settings[c][s].health = tonumber(v) end
+					if last == "l" then segment_settings[c][s].lives = tonumber(v) end
+					last = v
+				end
+			end
+			
 		end
-		
 	end
 	f:close()
 end
@@ -1398,9 +1556,39 @@ function tryParseSetting(str, prefix, targetVariable, Type)
 	end
 end
 
-function getCategoryHandle()
+function getCategoryHandle(segment)
+	-- Important: if no category variants are set, this
+	-- function MUST return currentRoute unchanged, or
+	-- there will be compatibility problems.
 	local s = currentRoute
+	
+	if variant_sparxless and not (segment[3] == "Entry" and levelInfo[segment[2]].flightLevel) then s = s .. "-sparxless" end
 
+	return s
+end
+
+function getCategoryFolderName(route)
+	if route == nil then route = currentRoute end
+	
+	local catList = string.split(route, "-")
+	route = catList[1]
+	local variants = {}
+	for i = 2, #catList do
+		variants[catList[i]] = true
+	end
+	
+	local s = routeFolderNames[currentRoute]
+	
+	if variants.sparxless then s = s .. " Sparxless" end
+	
+	return s
+end
+
+function getCategoryPrettyName()
+	local s = routePrettyNames[currentRoute]
+	
+	if variant_sparxless then s = s .. " Sparxless" end
+	
 	return s
 end
 
@@ -1586,8 +1774,10 @@ function handleUserInput()
 			end
 		end
 		
-		if inputs.X.menuPress then
+		if inputs.X.press then
 			menu_select()
+		elseif inputs.square.press then
+			menu_select(true)
 		end
 		
 		if inputs.any_right.menuPress then
@@ -1612,7 +1802,7 @@ function handleUserInput()
 			end
 		end
 		
-		if inputs.triangle.menuPress then
+		if inputs.triangle.press then
 			if type(menu_currentData.backFunction) == "function" then
 				menu_currentData:backFunction()
 			else
@@ -1779,7 +1969,7 @@ action_data = {
 		actionFunction = function()
 			if segment_readyToUpdate and segment_lastRecording ~= nil then
 				local g = segment_lastRecording
-				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], routeFolderNames[g.category])
+				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], getCategoryFolderName(g.category))
 				if not file.exists(folder) then
 					file.createFolder(folder)
 				end
@@ -1999,9 +2189,27 @@ function menu_close()
 	settings_save()
 end
 
-function menu_select()
-	--The player has pressed X
+function menu_select(squareSelect)
+	-- squareSelect is true if the user pressed the square button, nil or false otherwise
+	
+	-- The player has pressed X
 	local selectedItem = menu_items[menu_cursor]
+	
+	-- Handle case of user pressing square
+	if squareSelect then
+		if (selectedItem or {}).squareSelect then
+			-- Condition: This menu item has a square
+			-- action, so select it instead of the
+			-- normal action.
+			selectedItem = selectedItem.squareSelect
+		else
+			-- Condition: This menu item has no square
+			-- action, so return without doing anything.
+			return
+		end
+	end
+	
+	-- Handle selected action
 	local selectedAction = (selectedItem or {}).action
 	
 	if selectedAction == "changeMenu" then
@@ -2131,12 +2339,11 @@ menu_data = {
 			},
 			{action = "changeMenu", target = "route select", description = "Select the route to work on. Each route has its own savestates and ghosts.",
 				updateDisplay = function(self)
-					self.display = menu_data["route select"].title .. ": " .. tostring(routePrettyNames[currentRoute])
+					self.display = menu_data["route select"].title .. ": " .. getCategoryPrettyName()
 				end,
 			},
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
-			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route."},
-			{action = "changeMenu", target = "warp settings", description = "Change settings that are applied when loading the current segment."},
+			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route. Also access warp settings here."},
 			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
 			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
 			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
@@ -2175,6 +2382,7 @@ menu_data = {
 			{action = "selectSetting", setting = "120", display = routePrettyNames["120"], description = ""},
 			{action = "selectSetting", setting = "80dragons", display = routePrettyNames["80dragons"], description = ""},
 			{action = "selectSetting", setting = "vortex", display = routePrettyNames["vortex"], description = ""},
+			{action = "onOffSetting", targetVariable = "variant_sparxless", prettyName = "Sparxless", description = "No one to pick up gems for you. No one to protect you from harm. It's dangerous to go alone!"},
 		},
 		closeFunction = function(self)
 			tryRunGlobalFunction("segment_clearData")
@@ -2255,38 +2463,37 @@ menu_data = {
 		items = {
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "health"}, prettyName = "Health", minValue = -1, maxValue = 3, displayFunction = function(value) local lut ={[-1] = "No Change", [0] = "Sparxless", [1] = "Green Sparx", [2] = "Blue Sparx", [3] = "Gold Sparx"} return lut[value] end, description = nil},
 			{action = "numberSetting", targetVariable = {"segment_settings", "category", "segment", "lives"}, prettyName = "Lives", minValue = -1, maxValue = 99, displayFunction = function(value) if value == -1 then return "No Change" end return value end, description = nil},
-			{action = "function", display = "Delete segment savepoint", description = "Delete the savepoint for this segment in case you need to recreate it. This does not remove ghost data.",
+			{action = "function", display = "Delete segment savestate", description = "Delete the savestate for this segment in case you need to recreate it. This does not remove ghost data.",
 				selectFunction = function(self)
-					local fileName = getGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)})
+					local fileName = getGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(menu_options)})
 					if (fileName or "") ~= "" and file.exists(fileName) then
 						os.remove(fileName)
-						setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, nil)
-						showMessage("Savepoint file removed.")
+						setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(menu_options)}, nil)
+						showMessage("Savestate file removed.")
 					else
-						showMessage("No savepoint file found.")
+						showMessage("No savestate file found.")
 					end
 				end
 			},
 		},
 		openFunction = function(self)
-		
-			-- Detect title screen
-			if inTitleScreen then
-				menu_back()
-				menu_open("notice", {message = "This is not available on the title screen."})
-				return
+			
+			-- If no segment is provided, assume the current one (shouldn't happen in practice)
+			if menu_options == nil then
+				menu_options = currentSegment
 			end
+			
 			-- Detect unknown segment
-			if type((currentSegment or {})[2]) ~= "number" or levelInfo[currentSegment[2]] == nil then
+			if type((menu_options or {})[2]) ~= "number" or levelInfo[menu_options[2]] == nil then
 				menu_back()
 				menu_open("notice", {message = "This segment is not recognized."})
 				return
 			end
 			
-			menu_title = "Warp Settings for " .. levelInfo[currentSegment[2]].name .. " " .. currentSegment[3]
+			menu_title = "Warp Settings for " .. levelInfo[menu_options[2]].name .. " " .. menu_options[3]
 			
-			local category = getCategoryHandle()
-			local segment = getSegmentHandle()
+			local category = currentRoute
+			local segment = getSegmentHandle(menu_options)
 			menu_segmentSettings = menu_segmentSettings or {}
 			segment_settings[category] = segment_settings[category] or {}		
 			segment_settings[category][segment] = segment_settings[category][segment] or {}
@@ -2314,6 +2521,7 @@ menu_data = {
 			{action = "offRawSmoothSetting", targetVariable = "showLogicalSpeed", prettyName = "Show Logical Speed", description = "Spyro's speed in the game logic."},
 			{action = "offTrueDelayedSetting", targetVariable = "showSpyroPosition", prettyName = "Show Spyro's Position", description = "Renders a ghost at Spyro's position."},
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
+			{action = "onOffSetting", targetVariable = "showSunnyFlightScanner", prettyName = "Show Sunny Flight Scanner", description = "Show a minimap of the area surrounding the planes in Sunny Flight."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
 			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the game's gem counter update much faster."},
@@ -2431,6 +2639,8 @@ menu_data = {
 				menu_populateSegments()
 			end
 			
+			local commonDescription = "Press X to load savestate. Press square to change savestate settings."
+			
 			menu_items = {}
 			
 			if not menu_options then menu_options = 0 end
@@ -2449,7 +2659,7 @@ menu_data = {
 				-- List of levels in current homeworld
 				menu_title = menu_title .. " - " .. levelInfo[menu_options].name
 				if warpMenu_segments[tostring(menu_options) .. "Entry"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Homeworld Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Homeworld Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"World", menu_options, "Entry"},},})
 				end
 				local numberOfLevels = 5
 				if menu_options == 60 then numberOfLevels = 4 end
@@ -2463,19 +2673,19 @@ menu_data = {
 				-- Entry options and settings for currently selected level
 				menu_title = menu_title .. " - " .. levelInfo[menu_options].name
 				if warpMenu_segments[tostring(menu_options) .. "Entry"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Level Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Entry", display = "Level Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Entry"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "Balloon"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Balloon", display = "Balloonist Entry",})
+					table.insert(menu_items, {action = "loadSegment", target = "Balloon", display = "Balloonist Entry", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Balloon"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "Exit"] then
-					table.insert(menu_items, {action = "loadSegment", target = "Exit", display = "Level Exit",})
+					table.insert(menu_items, {action = "loadSegment", target = "Exit", display = "Level Exit", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "Exit"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "GameOver"] then
-					table.insert(menu_items, {action = "loadSegment", target = "GameOver", display = "Game Over",})
+					table.insert(menu_items, {action = "loadSegment", target = "GameOver", display = "Game Over", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "GameOver"},},})
 				end
 				if warpMenu_segments[tostring(menu_options) .. "PostCredits"] then
-					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits",})
+					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "PostCredits"},},})
 				end
 				table.insert(menu_items, {action = "back",})
 			end
@@ -3230,7 +3440,7 @@ function draw_inputs()
 	local left = 60
 	
 	gui.drawText(left, top + spacing * 0, " Mode: " .. tostring(recordingModePrettyNames[recordingMode]), "white", "black")
-	gui.drawText(left, top + spacing * 1, "Route: " .. tostring(routePrettyNames[currentRoute]), "white", "black")
+	gui.drawText(left, top + spacing * 1, "Route: " .. tostring(getCategoryPrettyName()), "white", "black")
 	
 	gui.drawText(left, top + spacing * 4, "  Right Stick", "white", "black")
 	gui.drawText(left, top + spacing * 5, " Left: " .. getActionName(menu_leftAction()), "white", "black")
@@ -3588,7 +3798,7 @@ function segment_loadGhosts()
 	-- For each collection, load some ghosts from it (maybe).
 	for collectionName in pairs(collections) do
 				
-		local collection = getGlobalVariable({"ghostData", "segment", currentRoute, segmentToString(currentSegment), collectionName})
+		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
 		
 		if type(collection) == "table" then
 		
@@ -3629,7 +3839,7 @@ function segment_loadGhosts()
 	end
 	
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
-	local comparison_target = getGlobalVariable({"ghostData", "segment", currentRoute, segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
+	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
 	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
 	if Ghost.isGhost(ghost) then
@@ -3672,7 +3882,6 @@ function segment_start()
 	segment_dragonSplitArmed = false
 	
 	segment_recording = Ghost.startNewRecording()
-	segment_recording.segment = currentSegment
 
 	for i, ghost in ipairs(segment_ghosts) do
 		if Ghost.isGhost(ghost) then
@@ -3814,7 +4023,7 @@ function segment_exportGolds()
 		for segment, collection_table in pairs(segment_table) do
 			local goldGhost = ((collection_table[playerName] or {}).lengthSort or {})[1]
 			if goldGhost then
-				local targetPath = file.combinePath({"Ghosts", collectionFolder, routeFolderNames[category]})
+				local targetPath = file.combinePath({"Ghosts", collectionFolder, getCategoryFolderName(category)})
 				if not file.exists(targetPath) then
 					file.createFolder(targetPath)
 				end
@@ -3849,6 +4058,23 @@ function populateFileList()
 	-- The global table that will hold the information about ghosts
 	ghostData = {}
 	
+	-- Ghost metadata will be saved to a file so we can load it faster next time.
+	cachedGhostData = {VERSION = 2}
+	
+	local cacheFilePath = file.combinePath("data","cachedGhostData.txt")
+	if file.exists(cacheFilePath) then
+		local f  = assert(io.open(file.combinePath("data","cachedGhostData.txt"), "r"))
+		loadedGhostDataCache = JSON:decode(f:read("*a"))
+		f:close()
+	else
+		loadedGhostDataCache = {}
+	end
+	
+	if loadedGhostDataCache.VERSION ~= cachedGhostData.VERSION then
+		-- Version mismatch, so discard the old cache
+		loadedGhostDataCache = {}
+	end
+	
 	-- The global table that will hold a list of available ghost collections.
 	-- These are the folders in the 
 	collections = {}
@@ -3875,96 +4101,111 @@ function populateFileList()
 		-- Skip this file if it is a collection settings file
 		if string.ends(fileName, "collectionSettings.txt") then return end
 		
-		-- The metadata for this ghost (assuming it is a valid ghost file)
-		local ghostMeta = {filePath = fullPath}
-		
+		-- Keep track of whether we have successfully loaded this ghost's metadata
 		local ghostIsValid = false
 		
-		-- Determine the collection.
-		local directoryTreeList = string.split(fullPath, seperator)
-		if #directoryTreeList < collectionDirectoryLevel + 1 then
-			-- Condition: The user has put a ghost file
-			-- directly in the Ghosts folder, not a
-			-- collection folder. Treat this as the
-			-- Unknown collection.
-			ghostMeta.collection = "Unknown"
+		-- Check if the file's metadata has been cached
+		if loadedGhostDataCache[fullPath] then
+			-- Condition: this file has been loaded before, so load the cached metadata
+			
+			addNewGhostMeta(loadedGhostDataCache[fullPath])
+			cachedGhostData[fullPath] = loadedGhostDataCache[fullPath]
+			collections[loadedGhostDataCache[fullPath].collection] = true
+			ghostIsValid = true
 		else
-			ghostMeta.collection = directoryTreeList[collectionDirectoryLevel]
-		end
-		
-		-- Track what collections exist.
-		collections[ghostMeta.collection] = true
-		
-		-- The entries to search for. The ghost is only considered valid if all of these are present.
-		local requiredItems = {"uid", "playerName", "gameName", "mode", "framerate", "category", "segment", "length", "timestamp"}
-		
-		-- Open the file and begin looping through its lines.
-		local f = assert(io.open(fullPath, "r"))
-		local keepLooping = true
-		
-		local line = f:read()
-		
-		if line == "version: 2" then 
-			while keepLooping do
-				line = f:read()
-				if line == nil then
-					-- Condition: We've reached the end of the
-					-- file, so exit the loop. If we reach this
-					-- point, then the required info was not
-					-- found in the file and the metadata
-					-- is discarded.
-					
-					keepLooping = false
-					
-				else
-					-- Condition: We haven't reached the end of
-					-- the file. Check this line to see if it
-					-- has information we need.
-					
-					for i, v in ipairs(requiredItems) do
-						-- Loop through the list of
-						-- requirements, checking each to see
-						-- if we've found it.
-						if string.starts(line, v) then
-							-- Condition: We've found a piece of data we're
-							-- looking for. Add it to the metadata for this ghost.
-							ghostMeta[v] = string.trim(string.sub(line, string.len(v) + 2))
-							
-							-- Remove this requirement from the list. This is done
-							-- both so we don't keep searching for it and because
-							-- we check if we've found all the required data by
-							-- testing if requiredItems is empty.
-							table.remove(requiredItems, i)
-							break
-						end
-					end
-					
-					-- Check if we've found all the requirements.
-					if #requiredItems == 0 then
-						-- If we have, then stop reading data
-						-- from this file and add the metadata
-						-- to the global table.
+			-- Condition: we have no record of seeing this file before, so open the file to investigate
+			
+			-- The metadata for this ghost (assuming it is a valid ghost file)
+			local ghostMeta = {filePath = fullPath}
+			
+			-- Determine the collection.
+			local directoryTreeList = string.split(fullPath, seperator)
+			if #directoryTreeList < collectionDirectoryLevel + 1 then
+				-- Condition: The user has put a ghost file
+				-- directly in the Ghosts folder, not a
+				-- collection folder. Treat this as the
+				-- Unknown collection.
+				ghostMeta.collection = "Unknown"
+			else
+				ghostMeta.collection = directoryTreeList[collectionDirectoryLevel]
+			end
+			
+			-- Track what collections exist.
+			collections[ghostMeta.collection] = true
+			
+			-- The entries to search for. The ghost is only considered valid if all of these are present.
+			local requiredItems = {"uid", "playerName", "gameName", "mode", "framerate", "category", "segment", "length", "timestamp"}
+			
+			-- Open the file and begin looping through its lines.
+			local f = assert(io.open(fullPath, "r"))
+			local keepLooping = true
+			
+			local line = f:read()
+			
+			if line == "version: 2" then 
+				while keepLooping do
+					line = f:read()
+					if line == nil then
+						-- Condition: We've reached the end of the
+						-- file, so exit the loop. If we reach this
+						-- point, then the required info was not
+						-- found in the file and the metadata
+						-- is discarded.
 						
-						-- First, convert some values to numbers
-						ghostMeta.framerate = tonumber(ghostMeta.framerate)
-						ghostMeta.timestamp = tonumber(ghostMeta.timestamp)
-						ghostMeta.length = tonumber(ghostMeta.length)
-						if ghostMeta.framerate ~= framerate then
-							ghostMeta.length = ghostMeta.length * framerate / ghostMeta.framerate
-						end
-						
-						-- Add the metadata to the global table, initializing the tables if they do not exist
 						keepLooping = false
-						if ghostMeta.gameName == "Spyro the Dragon" then
-							addNewGhostMeta(ghostMeta)
-							ghostIsValid = true
+						
+					else
+						-- Condition: We haven't reached the end of
+						-- the file. Check this line to see if it
+						-- has information we need.
+						
+						for i, v in ipairs(requiredItems) do
+							-- Loop through the list of
+							-- requirements, checking each to see
+							-- if we've found it.
+							if string.starts(line, v) then
+								-- Condition: We've found a piece of data we're
+								-- looking for. Add it to the metadata for this ghost.
+								ghostMeta[v] = string.trim(string.sub(line, string.len(v) + 2))
+								
+								-- Remove this requirement from the list. This is done
+								-- both so we don't keep searching for it and because
+								-- we check if we've found all the required data by
+								-- testing if requiredItems is empty.
+								table.remove(requiredItems, i)
+								break
+							end
+						end
+						
+						-- Check if we've found all the requirements.
+						if #requiredItems == 0 then
+							-- If we have, then stop reading data
+							-- from this file and add the metadata
+							-- to the global table.
+							
+							-- First, convert some values to numbers
+							ghostMeta.framerate = tonumber(ghostMeta.framerate)
+							ghostMeta.timestamp = tonumber(ghostMeta.timestamp)
+							ghostMeta.length = tonumber(ghostMeta.length)
+							if ghostMeta.framerate ~= framerate then
+								ghostMeta.length = ghostMeta.length * framerate / ghostMeta.framerate
+							end
+							
+							-- Add the metadata to the global table, initializing the tables if they do not exist
+							keepLooping = false
+							if ghostMeta.gameName == "Spyro the Dragon" then
+								addNewGhostMeta(ghostMeta)
+								cachedGhostData[fullPath] = ghostMeta
+								ghostIsValid = true
+							end
 						end
 					end
 				end
 			end
-		end
+			
+			f:close()
 		
-		f:close()
+		end
 		
 		-- Load the ghost into the cache if the segment_preloadAllGhosts setting is set.
 		if ghostIsValid and segment_preloadAllGhosts and segment_loadedGhostCache[ghostMeta.uid] == nil then
@@ -3975,6 +4216,14 @@ function populateFileList()
 		end
 		
 	end)
+	
+	-- Save the metadata cache so it can be loaded
+	-- faster next time.
+	local f  = assert(io.open(file.combinePath("data","cachedGhostData.txt"), "w"))
+	f:write(JSON:encode(cachedGhostData))
+	f:close()
+	cachedGhostData = nil
+	loadedGhostDataCache = nil
 	
 	-- The table that will hold information about the available savestates
 	savestateData = {}
@@ -4077,7 +4326,7 @@ function Ghost.startNewRecording()
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
 	newRecording.mode = recordingMode
-	newRecording.category = currentRoute
+	newRecording.category = getCategoryHandle(getCurrentSegment())
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
@@ -5251,6 +5500,7 @@ function getCurrentSegment()
 	o[1] = currentSegment[1]
 	o[2] = currentSegment[2]
 	o[3] = currentSegment[3]
+	return o
 end
 
 function segmentToString(segmentTable)
@@ -5356,11 +5606,14 @@ function onLoadSavestate()
 				end
 			end
 			
-			local category = getCategoryHandle()
+			local category = currentRoute
 			local segment = getSegmentHandle()
 			if segment_settings[category] ~= nil and segment_settings[category][segment] ~= nil then
 				local health = segment_settings[category][segment].health or -1
-				if health > -1 then memory.write_u32_le(0x078BBC + m[4], health) end
+				if health > -1 then
+					memory.write_u32_le(0x078BBC + m[4], health)
+					memory.write_u32_le(0x07580C + m[3], health)
+				end
 				local lives = segment_settings[category][segment].lives or -1
 				if lives > -1 then memory.write_u32_le(0x07582C + m[3], lives) end
 			end
@@ -5545,14 +5798,14 @@ while true do
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_iveGotSomeThingsToDo) -- intro cutscene
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_toast) -- post gnasty gnorc
 			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_whatsAMinion) -- post gnasty's loot
-		elseif currentLevel == 63 and spyroControl > 0 then
+		elseif currentLevel == 63 and spyroControl > 0 and lastSpyroControl == 0 then
 			-- Level 63 is Gnasty Gnorc. When Spyro kills
 			-- the boss, he is turned invisible and
 			-- replaced with a separate object that turns
 			-- and laughs at Gnasty Gnorc. We only need to
 			-- perform this check while player control is
 			-- disabled (spyroControl > 0).
-			spyroSkin.tryReplacePalette(currentPalette, spyroSkin.palettes_laughing)
+			spyroSkin.applyPalette(currentPalette, spyroSkin.palettes_laughing)
 		end
 		
 		-- Handle recording		
@@ -5573,6 +5826,12 @@ while true do
 		
 		for i, ghost in ipairs(segment_ghosts) do
 			Ghost.update(ghost)
+		end
+		
+		-- Update health as needed when loading savestates
+		if (setHealth_armed or -1) > -1 and loadingState == -1 then
+			memory.write_u32_le(0x078BBC + m[4], setHealth_armed)
+			setHealth_armed = -1
 		end
 		
 		-- Handle menus
@@ -5614,6 +5873,16 @@ while true do
 		onscreenMessages_update()
 	else
 		
+	end
+	
+	-- Stop changes to variants from taking effect until you leave the menu.
+	if menu_state == nil then
+		variant_sparxless_effective = variant_sparxless
+	end
+	
+	-- Apply Sparxless variant
+	if variant_sparxless_effective then
+		memory.write_u16_le(0x078BBC + m[4], 0x00)
 	end
 	
 	-- Stop controller inputs from reaching the game while the menu is open.
