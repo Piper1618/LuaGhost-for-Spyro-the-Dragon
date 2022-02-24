@@ -650,6 +650,7 @@ end
 if true then
 	showSpyroPosition = 0
 	showArtisanProps = 0
+	showSunnyFlightScanner = false
 	
 	showBonkCounter = false
 	bonkCounter = 0
