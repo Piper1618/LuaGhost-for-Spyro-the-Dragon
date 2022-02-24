@@ -969,6 +969,22 @@ function drawSunnyFlightScanner()
 		return y > 70000 and y < 170000 and x > 32000 and x < ((y > 110000) and ((y < 155500) and 108000 or 98000) or 92000)
 	end
 	
+	-- Draw a triangle at the x, y screen coordinates
+	local function drawDart(x, y, direction, length, width, lineColor, backColor)
+		-- direction is in radians
+	
+		local pointer = {{length, 0}, {-length * 2 / 3, width}, {-length * 2 / 3, -width}}
+		local rotatedPointer = {}
+		for i, v in ipairs(pointer) do
+			table.insert(rotatedPointer, {
+				math.cos(direction) * v[1] + math.sin(direction) * v[2],
+				(math.cos(direction) * v[2] - math.sin(direction) * v[1]) * m.pixelRatio,
+			})
+		end
+		gui.drawPolygon(rotatedPointer, x, y, 0, backColor)
+		gui.drawPolygon(rotatedPointer, x, y, lineColor, 0)
+	end
+	
 	-- Check we're in Sunny Flight
 	if currentLevel == 15 and bit.band(2 ^ gameState, 0x9D) > 0 then
 		-- Initialize variables globally if needed.
@@ -987,40 +1003,37 @@ function drawSunnyFlightScanner()
 		
 		local regionOffset = (displayType == "NTSC") and 0x00 or 0x0994
 		
+		-- Spyro's coordinates
+		local sx = memory.read_u32_le(0x80078A58 + m[4])
+		local sy = memory.read_u32_le(0x80078A5C + m[4])
+		
 		-- Draw the Planes
 		for i = 0, 7 do
-			if memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x48) >= 0 then
+			if memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x18) == 0 then
 				local px = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x0C)
 				local py = memory.read_u32_le(0x801756D0 + regionOffset + i * 0x58 + 0x10)
-				if gameState == 0 then 
-					sunnyFlightScanner_plane_active[i + 1] = not(sunnyFlightScanner_plane_lastCoords[i + 1].x == px and sunnyFlightScanner_plane_lastCoords[i + 1].y == py)
-					sunnyFlightScanner_plane_lastCoords[i + 1].x = px
-					sunnyFlightScanner_plane_lastCoords[i + 1].y = py
-				end
 				
-				local color = sunnyFlightScanner_plane_active[i + 1] and 0xFFFFFFFF or 0xFFFF0000
-				gui.drawEllipse(convertX(px)-2, convertY(py)-1, 4, 3, 0xFF000000, color)
+				local color = (memory.read_s8(0x801756D0 + regionOffset + i * 0x58 + 0x51) > 0 or (math.sqrt((px - sx) ^ 2 + (py - sy) ^ 2) < 0x4000)) and 0xFFFFFFFF or 0xFFFF0000
+				drawDart(convertX(px), convertY(py), memory.read_u8(0x801756D0 + regionOffset + i * 0x58 + 0x46) * 2 * math.pi / 256, 8, 4, 0xFF000000, color)
 			end
 		end
 		
 		-- Draw the Trains
-		for i = 0, 3 do
-			if memory.read_s8(0x80175990 + regionOffset + i * 3 * 0x58 + 0x48) >= 0 then
-				local tx = memory.read_u32_le(0x80175990 + regionOffset + i * 3 * 0x58 + 0x0C)
-				local ty = memory.read_u32_le(0x80175990 + regionOffset + i * 3 * 0x58 + 0x10)
+		for i = 11, 0, -1 do -- Counting backwards so the front of each train is drawn last.
+			if memory.read_s8(0x80175990 + regionOffset + i * 0x58 + 0x48) >= 0 and memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x18) == 0 then
+				local tx = memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x0C)
+				local ty = memory.read_u32_le(0x80175990 + regionOffset + i * 0x58 + 0x10)
 				if isOnMap(tx, ty) then
-					gui.drawEllipse(convertX(tx)-2, convertY(ty)-1, 4, 3, 0xFF000000, 0xFFFFFFFF)
+					gui.drawEllipse(convertX(tx)-3, convertY(ty)-2, 6, 4, 0xFF000000, (i % 3 == 0) and 0xFFA0A0A0 or 0xFFA04010)
 				end
 			end
 		end
 		
 		-- Draw Spyro
 		if true then
-			local sx = spyroX
-			local sy = spyroY
 			if isOnMap(sx, sy) then
-				gui.drawEllipse(convertX(sx)-3, convertY(sy)-2, 7, 4, 0xFF300050, 0xFFB080E0)
-				local r = 18000
+				drawDart(convertX(sx), convertY(sy), memory.read_u8(0x078A66 + m[4]) * 2 * math.pi / 256, 5, 8, 0xFF300050, 0xFFB080E0)
+				local r = 0x4000
 				local x = convertX(sx-r)
 				local y = convertY(sy-r)
 				local w = convertX(sx+r)-x
