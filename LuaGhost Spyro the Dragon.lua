@@ -5599,6 +5599,10 @@ function onLoadSavestate()
 	if not saveStateRequested then
 		tryRunGlobalFunction("clearAllRecordingData")
 	else
+		-- Randomize the pRNG iterator
+		memory.write_u16_le(0x075AC0 + m[5], math.random(0x10000))
+		memory.write_u16_le(0x075AC2 + m[5], math.random(0x10000))
+	
 		if recordingMode == "segment" then
 			for i, ghost in ipairs(segment_ghosts) do
 				if Ghost.isGhost(ghost) then
