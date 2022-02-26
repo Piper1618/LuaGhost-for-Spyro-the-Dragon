@@ -513,13 +513,11 @@ function getCameraValues()
 	cameraZ_buffer[1] = memory.read_u32_le(0x076E00 + m[4])
 		
 	--Get camera rotation
-	cameraYaw_buffer[1] = math.atan2(memory.read_s16_le(0x076DD4 + m[4]), memory.read_s16_le(0x076DD0 + m[4]))
 	
-	cameraPitch_buffer[1] = math.asin(memory.read_s16_le(0x076DDE + m[4]) / 4096)
-	upsideDownDetector = memory.read_s16_le(0x076E1E + m[4])
-	if upsideDownDetector > 1024 and upsideDownDetector < 2000 then
-		cameraPitch_buffer[1] = _pi - cameraPitch_buffer[1]
-	end
+	cameraYaw_buffer[1] = memory.read_u16_le(0x076E20 + m[4]) / 0x800 * _pi
+	
+	cameraPitch_buffer[1] = bit.lshift(memory.read_u16_le(0x076E1E + m[4]), 4) / 0x8000 * _pi
+	if cameraPitch_buffer[1] >= _pi then cameraPitch_buffer[1] = cameraPitch_buffer[1] - _tau end
 	
 	--Update camera variables
 	bufferIndex = bufferIndex + 1
