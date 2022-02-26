@@ -29,34 +29,10 @@ os.execute("mkdir data")
 -- Load external libraries/modules
 -------------------------
 
-if true then
-	--Point the path at the libs folder in the same folder
-	--as this script.
-	local oldPath = package.path
-	package.path = [[.\libs\?.lua]]
-
-	local function loadLib(name)
-
-		--This unloads the library if it was already loaded.
-		--When you reload a script in BizHawk, it doesn't
-		--remove the old data. Any functions that changed will
-		--get overwritten, but any loaded modules won't get
-		--reloaded unless we explicitly unload them first.
-		package.loaded[name] = nil
-		
-		return require(name)
-	end
-
-	--Load the modules we need
-	loadLib("bizHawkLuaUtility")
-	file = loadLib("file")
-	inputs = loadLib("inputs")
-	JSON = assert(loadfile [[libs\JSON.lua]])()
-
-	--Return the path to its default state, in case
-	--anything else needs it to be that way.
-	package.path = oldPath
-end
+assert(loadfile([[libs\bizHawkLuaUtility.lua]]))()
+file = assert(loadfile([[libs\file.lua]]))()
+inputs = assert(loadfile([[libs\inputs.lua]]))()
+JSON = assert(loadfile [[libs\JSON.lua]])()
 
 -------------------------
 -- Variables and constants
