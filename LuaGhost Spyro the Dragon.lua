@@ -4522,7 +4522,9 @@ function Ghost:updateRecording()
 end
 
 function Ghost:updatePlayback()
-	-- This just draws the ghost to the stream
+	-- This updates the ghosts position and other values
+	
+	self._doDraw = false
 	
 	local currentFrame = emu.framecount() - self.zeroFrame + conditional(segment_showSubSegmentGhosts, self.subSegmentOffset, 0)
 	if self.framerate ~= framerate then
@@ -4573,7 +4575,9 @@ function Ghost:updatePlayback()
 		if self.keyframes[self.currentKeyframe + 1] == nil or self.keyframes[self.currentKeyframe + 1]["segment"] ~= nil then
 			-- Condition: we don't need to interpolate to the next keyframe
 			
-			drawGhost(self.keyframes[self.currentKeyframe][2], self.keyframes[self.currentKeyframe][3], self.animation, self.color)
+			self._position = self.keyframes[self.currentKeyframe][2]
+			self._rotation = self.keyframes[self.currentKeyframe][3]
+			self._doDraw = true
 		else
 			--Condition: we need to interpolate to the next keyframe
 			
@@ -4595,9 +4599,21 @@ function Ghost:updatePlayback()
 			if spyroDirection2 < spyroDirection1 - _pi then spyroDirection2 = spyroDirection2 + _tau end
 			local spyroDirectionI = (spyroDirection1 * (1 - interp)) + (spyroDirection2 * interp)
 			
-			drawGhost(spyroVI, spyroDirectionI, self.animation, self.color)
-			
+			self._position = spyroVI
+			self._rotation = spyroDirectionI
+			self._doDraw = true
 		end
+		
+		-- Determine distance from camera (used for sorting)
+		if self._doDraw then
+			self._cameraRange = math.cos(cameraPitch) * (math.cos(-cameraYaw) * (self._position[1] - cameraX) - math.sin(-cameraYaw) * (self._position[2] - cameraY)) - math.sin(cameraPitch) * (self._position[3] - cameraZ)
+		end
+	end
+end
+
+function Ghost:draw()
+	if self.isPlaying and self._doDraw then
+		drawGhost(self._position, self._rotation, self.animation, self.color)
 	end
 end
 
@@ -5802,8 +5818,18 @@ while true do
 			end
 		end
 		
+		-- Update the locations of ghosts for this frame
 		for i, ghost in ipairs(segment_ghosts) do
 			Ghost.update(ghost)
+		end
+		-- Sort ghosts by distance in front of the camera
+		table.sort(segment_ghosts, function(a, b)
+			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
+			return a._cameraRange > b._cameraRange
+		end)
+		-- Draw the ghosts
+		for i, ghost in ipairs(segment_ghosts) do
+			ghost:draw()
 		end
 		
 		-- Update health as needed when loading savestates
