@@ -611,7 +611,7 @@ function detectSegmentEvents()
 	-------
 	
 	-- Detect start of segment, when gaining control of Spyro after the segment_levelStartArmed flag has been set
-	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed then
+	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed and recordingMode == "segment" then
 		segment_levelStartArmed = false
 		segment_start()
 	end
@@ -3732,7 +3732,6 @@ function segment_clearData()
 end
 
 function segment_loadGhosts()
-	
 	segment_ghosts = {}
 	segment_comparison_ghost = nil
 	segment_loadedGhostCache_age = segment_loadedGhostCache_age + 1
@@ -3919,11 +3918,11 @@ function segment_restart(targetSegment)
 		segment_recording = nil
 		segment_lastRecording = nil
 		segment_readyToUpdate = false
-		segment_levelStartArmed = true
+		if recordingMode == "segment" then segment_levelStartArmed = true end
 		spyroControl = 0
 		
 		--try to load ghost
-		segment_loadGhosts()
+		if recordingMode == "segment" then segment_loadGhosts() end
 		
 		--load savestate
 		saveStateRequested = true
