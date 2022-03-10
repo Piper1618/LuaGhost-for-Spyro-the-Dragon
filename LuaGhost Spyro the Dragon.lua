@@ -3886,6 +3886,7 @@ function segment_halt()
 		segment_lastRecording_gemTotal = levelInfo[level].gems
 		
 		menu_segmentUpdate_timer = menu_segmentUpdate_maxTimer
+		quickDelta_timer = 0
 
 		if Ghost.isGhost(segment_comparison_ghost) then
 			if segment_comparison_ghost.framerate == framerate then
