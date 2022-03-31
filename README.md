@@ -9,7 +9,7 @@ You can download the latest version of LuaGhost [here](https://github.com/Piper1
 
 # Setup
 
-The script is designed to work with BizHawk version 2.6.1 and later. The emulator must be running the NTSC (U) or PAL version of Spyro the Dragon. It is not compatible with the later Spyro games, only the first in the original trilogy.
+The script is designed to work with BizHawk version 2.6.1 through 2.7. It is NOT currently compatible with BizHawk 2.8.x. The emulator must be running the NTSC (U) or PAL version of Spyro the Dragon. It is not compatible with the later Spyro games, only the first in the original trilogy.
 
 BizHawk has some graphics settings which may cause issues if configured incorrectly, so you'll want to check the settings in "PSX" -> "Options".
 
