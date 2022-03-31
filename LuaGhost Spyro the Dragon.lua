@@ -4609,7 +4609,7 @@ function Ghost:updatePlayback()
 		
 		-- Determine distance from camera (used for sorting)
 		if self._doDraw then
-			self._cameraRange = math.cos(cameraPitch) * (math.cos(-cameraYaw) * (self._position[1] - cameraX) - math.sin(-cameraYaw) * (self._position[2] - cameraY)) - math.sin(cameraPitch) * (self._position[3] - cameraZ)
+			self._cameraRange = cameraPitch_cos * (cameraYaw_cos * (self._position[1] - cameraX) - cameraYaw_sin * (self._position[2] - cameraY)) - cameraPitch_sin * (self._position[3] - cameraZ)
 		end
 	end
 end
