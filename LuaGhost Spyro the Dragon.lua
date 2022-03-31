@@ -506,6 +506,11 @@ function getCameraValues()
 	cameraZ = cameraZ_buffer[bufferIndex]
 	cameraYaw = cameraYaw_buffer[bufferIndex]
 	cameraPitch = cameraPitch_buffer[bufferIndex]
+	
+	cameraPitch_sin = math.sin(cameraPitch)
+	cameraPitch_cos = math.cos(cameraPitch)
+	cameraYaw_sin = math.sin(-cameraYaw)
+	cameraYaw_cos = math.cos(-cameraYaw)
 end
 
 function detectSegmentEvents()
@@ -1078,52 +1083,50 @@ function drawLine_worldVector (v1, v2)-- ({1, 2, 3}, {4, 5, 6})
 end
 
 function drawLine_world (x1, y1, z1, x2, y2, z2)
+	local scp = cameraPitch_sin
+	local ccp = cameraPitch_cos
+	local scy = cameraYaw_sin
+	local ccy = cameraYaw_cos
+
 	local relativeX1 = x1 - cameraX
 	local relativeY1 = y1 - cameraY
 	local relativeX2 = x2 - cameraX
 	local relativeY2 = y2 - cameraY
 	
-	local rotatedX1 = math.cos(-cameraYaw) * relativeX1 - math.sin(-cameraYaw) * relativeY1
-    local rotatedZ1 = z1 - cameraZ
-	local rotatedX2 = math.cos(-cameraYaw) * relativeX2 - math.sin(-cameraYaw) * relativeY2
-    local rotatedZ2 = z2 - cameraZ
-
-    local pitchedX1 = math.cos(cameraPitch) * rotatedX1 - math.sin(cameraPitch) * rotatedZ1
-    local pitchedY1 = math.sin(-cameraYaw) * relativeX1 + math.cos(-cameraYaw) * relativeY1
-    local pitchedZ1 = math.sin(cameraPitch) * rotatedX1 + math.cos(cameraPitch) * rotatedZ1
-	local pitchedX2 = math.cos(cameraPitch) * rotatedX2 - math.sin(cameraPitch) * rotatedZ2
-    local pitchedY2 = math.sin(-cameraYaw) * relativeX2 + math.cos(-cameraYaw) * relativeY2
-    local pitchedZ2 = math.sin(cameraPitch) * rotatedX2 + math.cos(cameraPitch) * rotatedZ2
+	local rotatedX1 = ccy * relativeX1 - scy * relativeY1
+	local rotatedZ1 = z1 - cameraZ
+	local rotatedX2 = ccy * relativeX2 - scy * relativeY2
+	local rotatedZ2 = z2 - cameraZ
 	
-	local oneBehindCamera = false
+	local pitchedX1 = ccp * rotatedX1 - scp * rotatedZ1
+	local pitchedX2 = ccp * rotatedX2 - scp * rotatedZ2
+
+	local pitchedY1 = scy * relativeX1 + ccy * relativeY1
+	local pitchedZ1 = scp * rotatedX1 + ccp * rotatedZ1
+	local pitchedY2 = scy * relativeX2 + ccy * relativeY2
+	local pitchedZ2 = scp * rotatedX2 + ccp * rotatedZ2
 	
 	if pitchedX1 < nearClip then
-		pitchedY1 = pitchedY1 + (((pitchedY2)-(pitchedY1))/(pitchedX2-pitchedX1))*(nearClip-pitchedX1)
-		pitchedZ1 = pitchedZ1 + (((pitchedZ2)-(pitchedZ1))/(pitchedX2-pitchedX1))*(nearClip-pitchedX1)
+		if pitchedX2 < nearClip then
+			return
+		end
+		pitchedY1 = pitchedY1 + (pitchedY2-pitchedY1)/(pitchedX2-pitchedX1)*(nearClip-pitchedX1)
+		pitchedZ1 = pitchedZ1 + (pitchedZ2-pitchedZ1)/(pitchedX2-pitchedX1)*(nearClip-pitchedX1)
 		pitchedX1 = nearClip
-		oneBehindCamera = true
 	end
 	
 	if pitchedX2 < nearClip then
-		if oneBehindCamera then return end
-		pitchedY2 = pitchedY2 + (((pitchedY1)-(pitchedY2))/(pitchedX1-pitchedX2))*(nearClip-pitchedX2)
-		pitchedZ2 = pitchedZ2 + (((pitchedZ1)-(pitchedZ2))/(pitchedX1-pitchedX2))*(nearClip-pitchedX2)
+		pitchedY2 = pitchedY2 + (pitchedY1-pitchedY2)/(pitchedX1-pitchedX2)*(nearClip-pitchedX2)
+		pitchedZ2 = pitchedZ2 + (pitchedZ1-pitchedZ2)/(pitchedX1-pitchedX2)*(nearClip-pitchedX2)
 		pitchedX2 = nearClip
 	end
 	
-	--viewport should range from -1 to 1
-	local viewportX1 = (pitchedY1 / pitchedX1) * FOVx
-	local viewportY1  = (pitchedZ1 / pitchedX1) * FOVy
-	local viewportX2 = (pitchedY2 / pitchedX2) * FOVx
-	local viewportY2  = (pitchedZ2 / pitchedX2) * FOVy
-	
-	--screen should vary from 0 to width/height (560/240)
-	local screenX1 = (viewportX1 * -screen_halfWidth) + screen_halfWidth
-	local screenY1 = (viewportY1 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
-	local screenX2 = (viewportX2 * -screen_halfWidth) + screen_halfWidth
-	local screenY2 = (viewportY2 * -screen_halfHeight) + screen_halfHeight + screen_yOffset
-	
-	drawLine_screen(screenX1, screenY1, screenX2, screenY2)	
+	drawLine_screen(
+		screen_halfWidth * (((pitchedY1 / pitchedX1) * -FOVx) + 1),
+		screen_halfHeight * (((pitchedZ1 / pitchedX1) * -FOVy) + 1),
+		screen_halfWidth * (((pitchedY2 / pitchedX2) * -FOVx) + 1),
+		screen_halfHeight * (((pitchedZ2 / pitchedX2) * -FOVy) + 1)
+	)	
 	
 end
 
