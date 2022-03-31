@@ -1364,6 +1364,7 @@ if true then
 		"variant_sparxless",
 		"showDebugMessages",
 		"timeFormat_frames",
+		"showDeltaPercent",
 		"segment_comparison_collection",
 		"segment_comparison_target",
 		"segment_comparison_useColor",
@@ -2060,6 +2061,8 @@ if true then
 	menu_cursorFlash_timer = 0
 	menu_cursorFlash_period = 30
 	
+	showDeltaPercent = false
+	
 	-- Menu options for the player name entry. This is
 	-- separate from the rest of the menu data because it
 	-- needs to be accessed in multiple places.
@@ -2501,6 +2504,7 @@ menu_data = {
 			{action = "onOffSetting", targetVariable = "showSunnyFlightScanner", prettyName = "Show Sunny Flight Scanner", description = "Show a minimap of the area surrounding the planes in Sunny Flight."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
+			{action = "onOffSetting", targetVariable = "showDeltaPercent", prettyName = "Show Delta Percent", description = "At the end of each segment, show the percent difference from the comparison time."},
 			{action = "onOffSetting", targetVariable = "quickUpdatingGems", prettyName = "Fast Gem Counter", description = "Makes the game's gem counter update much faster."},
 		},
 	},
@@ -3464,8 +3468,15 @@ function draw_updateSegment()
 		-- Calculate and print segment delta
 		if menu_segmentUpdate_delta ~= nil then
 
+			local percent = ""
+			if showDeltaPercent then
+				percent = menu_segmentUpdate_delta / (segment_lastRecording.length - menu_segmentUpdate_delta)
+				local sign = percent >= 0 and "+" or ""
+				percent = "   " .. string.format("%s%.0d%%", sign, percent * 100)
+			end
+
 			local s, c = getFormattedTime(menu_segmentUpdate_delta, true, menu_segmentUpdate_forceFrames)--This should not be calculated here. 
-			s = "Delta: " .. s
+			s = "Delta: " .. s .. percent
 			
 			gui.drawText(x, y+2*dy, s, c, "black")
 		end
