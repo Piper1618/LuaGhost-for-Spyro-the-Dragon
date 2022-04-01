@@ -2352,7 +2352,7 @@ menu_data = {
 		items = {
 			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and practice against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
 			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a comparison ghost will automatically start. New savestates are created automatically as you complete your route."},
-			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented. You can still do a full run in segment mode and segment ghosts will play automatically as you move between levels.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
+			{action = "selectSetting", setting = "run", display = "Full Run", description = "Full Run will create a ghost for an entire speedrun. Segment ghosts may optionally be shown."},
 		},
 		openFunction = function(self)
 			self.originalValue = getGlobalVariable(self.targetVariable)
@@ -2360,10 +2360,6 @@ menu_data = {
 		closeFunction = function(self)
 			if self.originalValue ~= getGlobalVariable(self.targetVariable) then
 				tryRunGlobalFunction("clearAllRecordingData")
-			end
-			if recordingMode == "run" then
-				recordingMode = "segment"
-				showError("Full run mode is not yet implemented")
 			end
 		end,
 	},
@@ -4040,6 +4036,10 @@ function segment_exportGolds()
 	segment_saveCollectionSettings(collectionFolder)
 	return collectionFolder
 end
+
+-------------------------
+-- Full Run Mode
+-------------------------
 
 -------------------------
 -- File Tracking and Handling
