@@ -602,22 +602,27 @@ function detectSegmentEvents()
 	-------
 	-- Load Ghost
 	-------
-	if lastLoadingState ~= 10 and loadingState == 10 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" and not segment_levelStartArmed then
+	if lastLoadingState ~= 10 and loadingState == 10 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") and not segment_levelStartArmed then
 		segment_levelStartArmed = true
 		segment_loadGhosts()
+		
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then
+			run_runStartArmed = true
+			run_loadGhosts()
+		end
 	end
 	
 	-------
 	-- Create Save State
 	-------
-	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" then
+	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") then
 		
 		local folder = "Savestates"
 		if not file.exists(folder) then
 			file.createFolder(folder) 
 		end
 		
-		local f = file.combinePath(folder, displayType .. " - " .. recordingMode .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
+		local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
 		if not file.exists(f) then
 			savestate.save(f)
@@ -631,9 +636,15 @@ function detectSegmentEvents()
 	-------
 	
 	-- Detect start of segment, when gaining control of Spyro after the segment_levelStartArmed flag has been set
-	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed and recordingMode == "segment" then
+	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed and (recordingMode == "segment" or recordingMode == "run") then
 		segment_levelStartArmed = false
 		segment_start()
+	end
+	
+	-- Detect start of segment, when gaining control of Spyro after the segment_levelStartArmed flag has been set
+	if spyroControl == 0 and lastSpyroControl > 0 and run_runStartArmed and recordingMode == "run" then
+		run_runStartArmed = false
+		run_start()
 	end
 end
 
@@ -1873,7 +1884,7 @@ action_data = {
 			showMessage("Set new savepoint and started recording")
 			createQuickSavestate()
 			manual_ghost = nil
-			manual_recording = Ghost.startNewRecording()
+			manual_recording = Ghost.startNewRecording("manual")
 			manual_stateExists = true
 		end,
 	},
@@ -1898,7 +1909,7 @@ action_data = {
 				manual_stateExists = true
 			end
 			
-			manual_recording = Ghost.startNewRecording()
+			manual_recording = Ghost.startNewRecording("manual")
 		end,
 	},
 	{
@@ -3871,7 +3882,7 @@ function segment_loadGhosts()
 end
 
 function segment_start()
-	if recordingMode ~= "segment" then return end
+	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
 	
 	bonkCounter = 0
 	
@@ -3879,7 +3890,7 @@ function segment_start()
 	
 	segment_dragonSplitArmed = false
 	
-	segment_recording = Ghost.startNewRecording()
+	segment_recording = Ghost.startNewRecording("segment")
 
 	for i, ghost in ipairs(segment_ghosts) do
 		if Ghost.isGhost(ghost) then
@@ -3889,7 +3900,7 @@ function segment_start()
 end
 
 function segment_halt()
-	if recordingMode ~= "segment" then return end
+	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
 	
 	segment_dragonSplitArmed = false
 	
@@ -3944,11 +3955,15 @@ function segment_restart(targetSegment)
 		segment_recording = nil
 		segment_lastRecording = nil
 		segment_readyToUpdate = false
-		if recordingMode == "segment" then segment_levelStartArmed = true end
+		if recordingMode == "segment" or recordingMode == "run" then segment_levelStartArmed = true end
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then run_runStartArmed = true end
 		spyroControl = 0
 		
 		--try to load ghost
-		if recordingMode == "segment" then segment_loadGhosts() end
+		if recordingMode == "segment" or recordingMode == "run" then segment_loadGhosts() end
+		
+		--try to load full run ghost
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then run_loadGhosts() end
 		
 		--load savestate
 		saveStateRequested = true
@@ -4040,6 +4055,68 @@ end
 -------------------------
 -- Full Run Mode
 -------------------------
+
+if true then -- Full Run Mode Settings and Variables
+	--run_settings = {}
+	
+	run_recording = nil
+	run_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
+	--segment_ghostSettings = {}
+	run_comparison_ghost = nil -- The ghost we're currently comparing against.
+	run_comparison_collection = "Unknown"
+	run_comparison_target = "lengthSort"
+	run_comparison_useColor = true
+	run_comparison_color = 0xFFFFFFFF
+	
+	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
+	run_readyToUpdate = false
+	
+	run_runStartArmed = false
+end
+
+function run_loadGhosts()
+
+end
+
+function run_start()
+	if recordingMode ~= "run" then return end
+	
+	showDebug("Run Start")
+	
+	run_recording = Ghost.startNewRecording("run")
+
+	for i, ghost in ipairs(run_ghosts) do
+		if Ghost.isGhost(ghost) then
+			ghost:startPlayback()
+		end
+	end
+end
+
+function run_halt()
+	if recordingMode ~= "run" then return end
+	
+	showDebug("Run End")
+	
+	if Ghost.isGhost(run_recording) then
+		run_recording:endRecording()
+		
+		run_readyToUpdate = true
+		run_lastRecording = run_recording
+		run_recording = nil
+
+		if Ghost.isGhost(run_comparison_ghost) then
+			if run_comparison_ghost.framerate == framerate then
+					menu_runUpdate_delta = run_lastRecording.length - run_comparison_ghost.length
+					menu_runUpdate_forceFrames = nil
+				else
+					menu_runUpdate_delta = run_lastRecording.length - (run_comparison_ghost.length * framerate / run_comparison_ghost.framerate)
+					menu_runUpdate_forceFrames = false
+			end
+		else
+			menu_runUpdate_delta = nil
+		end
+	end
+end
 
 -------------------------
 -- File Tracking and Handling
@@ -4318,7 +4395,7 @@ function Ghost.isGhost(o)
 	return false
 end
 
-function Ghost.startNewRecording()
+function Ghost.startNewRecording(mode)
 	local newRecording = Ghost:new()
 	
 	newRecording.keyframes = {}
@@ -4328,7 +4405,7 @@ function Ghost.startNewRecording()
 	newRecording.animation = 1
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
-	newRecording.mode = recordingMode
+	newRecording.mode = mode
 	newRecording.category = getCategoryHandle(getCurrentSegment())
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
@@ -5572,7 +5649,7 @@ function onLoadSavestate()
 		memory.write_u16_le(0x075AC0 + m[5], math.random(0x10000))
 		memory.write_u16_le(0x075AC2 + m[5], math.random(0x10000))
 	
-		if recordingMode == "segment" then
+		if recordingMode == "segment" or recordingMode == "run" then
 			for i, ghost in ipairs(segment_ghosts) do
 				if Ghost.isGhost(ghost) then
 					ghost:endPlayback()
