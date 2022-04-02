@@ -5878,6 +5878,7 @@ while true do
 		Ghost.update(manual_ghost)
 		
 		Ghost.update(segment_recording)
+		Ghost.update(run_recording)
 		
 		if segment_dragonSplitThisFrame then
 			local splitNumber = #((segment_recording or {}).dragonSplits or {})
