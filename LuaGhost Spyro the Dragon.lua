@@ -599,6 +599,36 @@ function detectSegmentEvents()
 	
 	end
 	
+	if run_recording ~= nil and not run_runStartArmed then
+	
+		if currentRoute == "120" then
+			-- Condition: 120% Route, which ends on exiting Gnasty's Loot with all treasure
+			if gameState == 14 and currentLevel == 64 and memory.read_u32_le(0x077478 + m[4]) == levelInfo[64].gems then
+				run_halt()
+			end
+		elseif currentRoute == "80dragons" then
+			-- Condition: 80 Dragon route, ending on rescuing the final dragon
+			if memory.read_u32_le(0x075750 + m[2]) == 80 then
+				run_halt()
+			end
+		else
+			-- Condition: All other routes, including any%, which should end on killing Gnasty Gnorc
+			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 then
+				run_halt()
+			end
+		end
+		-- Detect level entry/exit. gameState 1 is used when entering and exiting levels
+		if gameState == 1 and lastGameState ~= 1 then
+			segment_halt()
+		end
+		
+		-- Detect beating Gnasty Gnorc or completing Gnasty's Loot
+		if gameState == 14 and (currentLevel == 63 or currentLevel == 64) then
+			segment_halt()
+		end
+	
+	end
+	
 	-------
 	-- Load Ghost
 	-------
