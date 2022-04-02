@@ -1637,6 +1637,14 @@ do -- Settings and defaults for the player inputs
 			R3 = "openMenu",
 			L3 = "",
 		},
+		run = {
+			RS_left = "",
+			RS_right = "",
+			RS_up = "",
+			RS_down = "",
+			R3 = "openMenu",
+			L3 = "",
+		},
 	}
 	
 	controls = nil
@@ -1647,6 +1655,15 @@ do -- Settings and defaults for the player inputs
 	function menu_downAction() return (controls[recordingMode] or {}).RS_down or "" end
 	function menu_R3Action() return (controls[recordingMode] or {}).R3 or "" end
 	function menu_L3Action() return (controls[recordingMode] or {}).L3 or "" end
+end
+
+function controls_verify()
+	if controls == nil or controls == {} then
+		controls_restoreDefault()
+	end
+	if controls.manual == nil then controls_restoreDefault("manual") end
+	if controls.segment == nil then controls_restoreDefault("segment") end
+	if controls.run == nil then controls_restoreDefault("run") end
 end
 
 function controls_restoreDefault(mode)
@@ -5698,9 +5715,7 @@ do
 	
 	settings_load()
 	
-	if controls == nil or controls == {} then
-		controls_restoreDefault()
-	end
+	controls_verify()
 	
 	tryToLoadSkinFromFile()
 	
