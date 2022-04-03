@@ -2075,6 +2075,7 @@ action_data = {
 				})
 				
 				run_readyToUpdate = false
+				menu_showEndOfRun = false
 				showMessage("Saved recording!")
 			end
 		end,
