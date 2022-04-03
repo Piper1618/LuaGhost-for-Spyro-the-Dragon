@@ -2046,6 +2046,19 @@ action_data = {
 		end,
 	},
 	{
+		name = "updateSegment_run",
+		
+		prettyName = "Save Segment Ghost",
+		recordingMode = "run",
+		description = "Save the most recently completed segment ghost. (Only available after completing a segment)",
+		actionFunction = function()
+			-- Proxy to the regular updateSegment action.
+			-- This must be done this way because actions cannot currently
+			-- belong to multiple recordingModes unless they are global.
+			handleAction("updateSegment")
+		end,
+	},
+	{
 		name = "saveRun",
 		
 		prettyName = "Save Run Ghost",
@@ -2078,6 +2091,17 @@ action_data = {
 				menu_showEndOfRun = false
 				showMessage("Saved recording!")
 			end
+		end,
+	},
+	{
+		name = "startRun",
+		
+		prettyName = "Start Run",
+		recordingMode = "run",
+		description = "Begin a new run from the beginning.",
+		actionFunction = function()
+			bonkCounter = 0
+			segment_restart({"World", 10, "Entry"})
 		end,
 	},
 	{
