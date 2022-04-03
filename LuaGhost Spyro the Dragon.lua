@@ -1669,7 +1669,7 @@ do -- Settings and defaults for the player inputs
 		},
 		run = {
 			RS_left = "",
-			RS_right = "",
+			RS_right = "saveRun",
 			RS_up = "",
 			RS_down = "",
 			R3 = "openMenu",
@@ -2041,6 +2041,40 @@ action_data = {
 				})
 				
 				segment_readyToUpdate = false
+				showMessage("Saved recording!")
+			end
+		end,
+	},
+	{
+		name = "saveRun",
+		
+		prettyName = "Save Run Ghost",
+		recordingMode = "run",
+		description = "Save the most recently completed full run ghost.",
+		actionFunction = function()
+			if run_readyToUpdate and run_lastRecording ~= nil then
+				local g = run_lastRecording
+				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], getCategoryFolderName(g.category))
+				if not file.exists(folder) then
+					file.createFolder(folder)
+				end
+				
+				local f = "Full Run " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
+				saveRecordingToFile(file.combinePath(folder, f), run_lastRecording)
+				
+				addNewGhostMeta({
+					segment = segmentToString(run_lastRecording.segment),
+					filePath = file.combinePath(folder, f),
+					playerName = run_lastRecording.playerName,
+					uid = run_lastRecording.uid,
+					category = run_lastRecording.category,
+					collection = playerName,
+					length = run_lastRecording.length,
+					timestamp = run_lastRecording.timestamp,
+					mode = run_lastRecording.mode,
+				})
+				
+				run_readyToUpdate = false
 				showMessage("Saved recording!")
 			end
 		end,
