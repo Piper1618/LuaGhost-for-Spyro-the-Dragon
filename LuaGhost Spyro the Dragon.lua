@@ -3872,6 +3872,7 @@ do -- Segment Mode Settings and Variables
 	
 	segment_recording = nil
 	segment_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
+	segment_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
 	segment_ghostSettings = {}
 	segment_comparison_ghost = nil -- The ghost we're currently comparing against.
 	segment_comparison_collection = "Unknown"
@@ -3917,6 +3918,7 @@ end
 
 function segment_loadGhosts()
 	segment_ghosts = {}
+	segment_ghostsSet = {}
 	segment_comparison_ghost = nil
 	segment_loadedGhostCache_age = segment_loadedGhostCache_age + 1
 	
@@ -3967,6 +3969,7 @@ function segment_loadGhosts()
 					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
+						segment_ghostsSet[ghost.uid] = true
 					end
 				end
 				
@@ -3980,6 +3983,7 @@ function segment_loadGhosts()
 					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
+						segment_ghostsSet[ghost.uid] = true
 					end
 				end
 				
@@ -3989,6 +3993,7 @@ function segment_loadGhosts()
 					local ghost, alreadyLoaded = loadUsingCache(collection.timestampSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
+						segment_ghostsSet[ghost.uid] = true
 					end
 				end
 			end
@@ -4003,30 +4008,15 @@ function segment_loadGhosts()
 		segment_comparison_ghost = ghost
 		if not alreadyLoaded then
 			table.insert(segment_ghosts, ghost)
-		else
-			-- Move the comparison ghost to the end of the
-			-- array, so it will get rendered last (and on
-			-- top of all the others).
-			for i, v in ipairs(segment_ghosts) do
-				if v == ghost then
-					table.remove(segment_ghosts, i)
-					table.insert(segment_ghosts, ghost)
-				end
-			end
+			segment_ghostsSet[ghost.uid] = true
 		end
 		if segment_comparison_useColor then
 			ghost.color = segment_comparison_color or 0xFFFFFFFF
 		end
 	end
 	
-	-- Unload any ghosts (from segment_loadedGhostCache) that are no longer being used
-	if not segment_preloadAllGhosts then
-		for k, v in pairs(segment_loadedGhostCache) do
-			if v.age < segment_loadedGhostCache_age then
-				segment_loadedGhostCache[k] = nil
-			end
-		end
-	end
+	-- Force unused ghosts to be removed from the cache
+	segment_cleanCachedGhosts = true
 end
 
 function segment_start()
@@ -4209,6 +4199,7 @@ if true then -- Full Run Mode Settings and Variables
 	
 	run_recording = nil
 	run_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
+	run_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
 	--segment_ghostSettings = {}
 	run_comparison_ghost = nil -- The ghost we're currently comparing against.
 	run_comparison_collection = "Unknown"
@@ -6104,6 +6095,15 @@ while true do
 		if not inTitleScreen or memory.read_u32_le(0x076C60 + m[4]) == 0 then
 			memory.write_u32_le(0x078C48 + m[4], 1)--This disables control of Spyro. This stops Spyro from reacting to inputs if the player opens the script's menu while the game is unpaused.
 			memory.write_u16_le(0x077380 + m[4], 0xF9F0)--as far as I can tell, this is telling the game that all the buttons were held down in the previous frame, preventing any button press events triggering. This prevents the player's inputs from reaching the game's menu if the game is paused while the script's menu is open.
+		end
+	end
+	
+	-- Unload any ghosts (from segment_loadedGhostCache) that are no longer being used
+	if segment_cleanCachedGhosts and not segment_preloadAllGhosts then
+		for k, v in pairs(segment_loadedGhostCache) do
+			if not segment_ghostsSet[k] and not run_ghostsSet[k] then
+				segment_loadedGhostCache[k] = nil
+			end
 		end
 	end
 	
