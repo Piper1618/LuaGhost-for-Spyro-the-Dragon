@@ -4078,6 +4078,11 @@ function segment_halt()
 			handleAction("updateSegment")
 		end
 	end
+	
+	-- Handle full runs
+	if recordingMode == "run" and run_recording ~= nil then
+		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
+	end
 end
 
 function segment_restart(targetSegment)
@@ -4540,6 +4545,7 @@ function Ghost.startNewRecording(mode)
 	
 	newRecording.keyframes = {}
 	newRecording.dragonSplits = {}
+	newRecording.segmentSplits = {} -- used during full game runs to show when different segments exit
 	newRecording.isRecording = true
 	newRecording.zeroFrame = emu.framecount() - 1
 	newRecording.animation = 1
@@ -4895,6 +4901,7 @@ function saveRecordingToFile(path, ghost)
 	f:write("datetime: ", ghost.datetime, "\n")
 	f:write("timestamp: ", tostring(ghost.timestamp), "\n")
 	f:write("framerate: ", tostring(ghost.framerate), "\n")
+	f:write("segmentSplits: ", JSON:encode(ghost.segmentSplits), "\n")
 	
 	-----
 	-- Dragon Splits
@@ -4940,6 +4947,7 @@ function loadRecordingFromFile(path)
 	local newGhost = Ghost:new()
 	local newKeyframes = {}
 	local newDragonSplits = {}
+	local newSegmentSplits = {}
 	
 	local line = nil
 	local items = nil
@@ -5021,12 +5029,16 @@ function loadRecordingFromFile(path)
 				table.insert(newDragonSplits, tonumber(items[i]))
 				i = i + 1
 			end
+			
+		elseif string.starts(line, "segmentSplits") then
+			newSegmentSplits = JSON:decode(string.sub(line, 15))
 		end
     end
 	f:close()
 	
 	newGhost.keyframes = newKeyframes
 	newGhost.dragonSplits = newDragonSplits
+	newGhost.segmentSplits = newSegmentSplits
 	return newGhost
 end
 
