@@ -3612,6 +3612,7 @@ function draw_updateSegment()
 		-- Print input to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
 		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) then
 			local updateButton = getInputForAction("updateSegment")
+			if updateButton == "" then updateButton = getInputForAction("updateSegment_run")
 			if updateButton ~= "" then
 				gui.drawText(x, y+3*dy, "Save new ghost with " .. updateButton, "white", "black")
 			end
