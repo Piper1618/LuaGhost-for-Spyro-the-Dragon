@@ -3888,11 +3888,7 @@ do -- Segment Mode Settings and Variables
 	segment_readyToUpdate = false
 	
 	segment_autoSaveGhosts = false -- A setting to automatically save all ghosts without waiting for the player to confirm they should be saved. Only intended for use cases such as creating a ghost from a tas.
-	
-	
-	segment_loadedGhostCache = {} -- A list of ghosts and their data. When reloading a segment, the script will check here first before loading a ghost from file. Ghosts that are no longer being used will be dropped from this cache unless segment_preloadAllGhosts is set.
-	segment_loadedGhostCache_age = 0
-	
+		
 	segment_preloadAllGhosts = false -- Load all available ghosts into segment_loadedGhostCach when the script first starts.
 	
 	segment_levelStartArmed = false
@@ -3928,10 +3924,10 @@ function segment_loadGhosts()
 		--Make sure this thing is real
 		if type(meta) ~= "table" then return nil, false end
 		
-		if segment_loadedGhostCache[meta.uid] then
+		if loadedGhostCache[meta.uid] then
 			-- Condition: This ghost is already loaded and doesn't need to be read from file again.
 			local alreadyLoaded = segment_ghostsSet[meta.uid] or run_ghostsSet[meta.uid]
-			local ghost = segment_loadedGhostCache[meta.uid].data
+			local ghost = loadedGhostCache[meta.uid].data
 			
 			-- It is possible for the same ghost to exist in multiple collections. If the
 			-- ghost is loaded from multiple collections at the same time, it will prefer
@@ -3949,7 +3945,7 @@ function segment_loadGhosts()
 			-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
 			local ghost = loadGhostFromMeta(meta)
 			if Ghost.isGhost(ghost) then
-				segment_loadedGhostCache[meta.uid] = {data = ghost}
+				loadedGhostCache[meta.uid] = {data = ghost}
 				ghost.collection = collection
 				ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
 				return ghost, false
@@ -4439,10 +4435,10 @@ function populateFileList()
 		end
 		
 		-- Load the ghost into the cache if the segment_preloadAllGhosts setting is set.
-		if ghostIsValid and segment_preloadAllGhosts and segment_loadedGhostCache[ghostMeta.uid] == nil then
+		if ghostIsValid and segment_preloadAllGhosts and loadedGhostCache[ghostMeta.uid] == nil then
 			local newCachedData = {age = 0, data = loadGhostFromMeta(ghostMeta),}
 			if newCachedData.data then
-				segment_loadedGhostCache[ghostMeta.uid] = newCachedData
+				loadedGhostCache[ghostMeta.uid] = newCachedData
 			end
 		end
 		
@@ -4506,6 +4502,10 @@ end
 -------------------------
 -- Ghost Class
 -------------------------
+
+do
+	loadedGhostCache = {} -- A list of ghosts and their data. When reloading a segment, the script will check here first before loading a ghost from file. Ghosts that are no longer being used will be dropped from this cache unless segment_preloadAllGhosts is set.
+end
 
 Ghost = {
 	isPlaying = false,
@@ -6116,11 +6116,11 @@ while true do
 		end
 	end
 	
-	-- Unload any ghosts (from segment_loadedGhostCache) that are no longer being used
+	-- Unload any ghosts (from loadedGhostCache) that are no longer being used
 	if segment_cleanCachedGhosts and not segment_preloadAllGhosts then
-		for k, v in pairs(segment_loadedGhostCache) do
+		for k, v in pairs(loadedGhostCache) do
 			if not segment_ghostsSet[k] and not run_ghostsSet[k] then
-				segment_loadedGhostCache[k] = nil
+				loadedGhostCache[k] = nil
 			end
 		end
 	end
