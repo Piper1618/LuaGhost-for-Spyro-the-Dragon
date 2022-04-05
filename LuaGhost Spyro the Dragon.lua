@@ -603,7 +603,9 @@ function detectSegmentEvents()
 	
 		if currentRoute == "120" then
 			-- Condition: 120% Route, which ends on exiting Gnasty's Loot with all treasure
-			if gameState == 14 and currentLevel == 64 and memory.read_u32_le(0x077478 + m[4]) == levelInfo[64].gems then
+			if gameState == 14 and currentLevel == 64 then
+				-- There's no need to check the gem count, because the
+				-- cutscene (gameState 14) only triggers if 120% is completed.
 				run_halt()
 			end
 		elseif currentRoute == "80dragons" then
