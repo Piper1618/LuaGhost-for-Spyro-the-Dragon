@@ -4642,56 +4642,6 @@ function Ghost:changeSubSegmentOffset(frame)
 	
 	-- Calculate new offset so that ghost will render the desired frame on the next update
 	self.subSegmentOffset = frame - (emu.framecount() - self.zeroFrame)
-	
-	do return end
-	
-	-- If we're moving the ghost forward, then
-	-- Ghost:updatePlayback() can handle it, but if we're
-	-- jumping backward in time, we'll need to update the
-	-- current keyframe.
-	if oldFrameOffset > self.subSegmentOffset then
-		local foundLevel = false
-		local foundAnimation = false
-		
-		local currentFrame = emu.framecount() - self.zeroFrame + self.subSegmentOffset
-		if self.framerate ~= framerate then
-			currentFrame = currentFrame * self.framerate / framerate
-		end
-		
-		currentFrame = currentFrame - 4
-		if currentFrame < 1 then currentFrame = 1 end
-		
-		-- Roll the keyframe back to the desired frame.
-		while self.keyframes[self.currentKeyframe - 1] ~= nil and (self.keyframes[self.currentKeyframe] == nil or self.keyframes[self.currentKeyframe][1] > currentFrame) do
-			self.currentKeyframe = self.currentKeyframe - 1
-		end
-		
-		-- And go one further so updatePlayback() will handle transitioning to this keyframe (such as by reading the animation state for it).
-		self.currentKeyframe = self.currentKeyframe - 1
-		
-		--[[
-		-- Continue searching back until we find out what the level and animation should be on this keyframe
-		local searchKeyframe = self.currentKeyframe
-		while searchKeyframe > 0 and not foundLevel and not foundAnimation do
-		
-			local levelCheck = (self.keyframes[searchKeyframe] or {})["segment"]
-			if levelCheck ~= nil then
-				foundLevel = true
-				self.ghostLevel = levelCheck
-			end
-			
-			local animationCheck = (self.keyframes[searchKeyframe] or {})["animation"]
-			if animationCheck ~= nil then
-				foundAnimation = true
-				self.animation = animationCheck
-			end
-			
-			searchKeyframe = searchKeyframe - 1
-		end
-		--]]
-	end
-	
-	self:resumePlayback()
 end
 
 function saveRecordingToFile(path, ghost)
