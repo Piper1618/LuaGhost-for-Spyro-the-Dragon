@@ -2459,7 +2459,7 @@ menu_data = {
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
 			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route. Also access warp settings here."},
 			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
-			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
+			{action = "changeMenu", target = "ghost settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
 			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
 		},
 	},
@@ -2668,15 +2668,17 @@ menu_data = {
 			spyroSkin.applyPalette((self.items[menu_cursor] or {}).palette)
 		end,
 	},
-	["segment mode settings"] = {
+	["ghost settings"] = {
 		menuType = "normal",
-		title = "Segment Mode Settings",
+		title = "Ghost Settings",
 		description = nil,
 		reservedDescriptionLines = 4,
 		items = {
-			{action = "changeMenu", target = "comparison settings", display = "Choose Which Ghost to Compare to", description = "Choose a ghost to race against. Time deltas against this ghost will show at the end of each segment and when rescuing dragons.",},
-			{action = "changeMenu", target = "collection settings list", display = "Choose Additonal Ghosts to Show", description = "Choose which ghosts will be displayed from each collection. These ghosts are shown in addition to the ghost you are comparing to. Each collection is a subfolder in the script's \"Ghosts\" folder.",},
-			{action = "function", display = "Export Segment Golds", description = "Create a new collection and copy your fastest ghost from each segment to it.",
+			--{action = "changeMenu", target = "comparison settings", display = "Choose Which Ghost to Compare to", description = "Choose a ghost to race against. Time deltas against this ghost will show at the end of each segment and when rescuing dragons.",},
+			--{action = "changeMenu", target = "collection settings list", display = "Choose Additional Ghosts to Show", description = "Choose which ghosts will be displayed from each collection. These ghosts are shown in addition to the ghost you are comparing to. Each collection is a subfolder in the script's \"Ghosts\" folder.",},
+			{action = "changeMenu", target = "segment ghost settings", description = "Change which segment ghosts are shown and which one to compare times against.",},
+			{action = "changeMenu", target = "run ghost settings", description = "Change which full run ghosts are shown and which one to compare times against.",},
+			{action = "function", display = "Export Fastest Times", description = "Create a new collection and copy your fastest ghost from each segment to it. Copies your fastest full game runs, too.",
 				selectFunction = function(self)
 					local collectionFolder = segment_exportGolds()
 					populateFileList()
@@ -2686,6 +2688,33 @@ menu_data = {
 			{action = "onOffSetting", targetVariable = "segment_showSubSegmentGhosts", prettyName = "Show Sub-Segment Ghosts", description = "When you rescue a dragon, all visible ghosts will jump forward or backward to rescue it at the same time. This does not change the time deltas that are shown.",},
 			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment at the cost of increased memory usage.",},
 			{action = "onOffSetting", targetVariable = "segment_autoSaveGhosts", prettyName = "Auto-save Ghosts", description = "Automatically save ghosts when ending a segment. This is not recommended because the script cannot tell if a segment was completed successfully. This may be useful for creating segment recordings from a TAS.",},
+		},
+	},
+	["segment ghost settings"] = {
+		menuType = "normal",
+		title = "Segment Ghost Settings",
+		description = nil,
+		reservedDescriptionLines = 4,
+		items = {
+			--{action = "changeMenu", target = "comparison settings", display = "Choose Which Ghost to Compare to", description = "Choose a ghost to race against. Time deltas against this ghost will show at the end of each segment and when rescuing dragons.",},\
+			{action = "changeMenu", target = "choose from list", updateDisplay = function(self) self.display = "Comparison Collection: " .. segment_comparison_collection end, description = "Choose the collection you want to compare to. Each collection is a subfolder in the script's \"Ghosts\" folder. Ghosts you create will be saved to a collection using your name.", options = {title = "Choose a Collection", targetVariable = "segment_comparison_collection", choices = "collections",},},
+			{action = "stringSetting", targetVariable = "segment_comparison_target", prettyName = "Compare To", description = "Select which ghost in the chosen collection will be compared to.", options = {"lengthSort", "timestampSort",}, displayLUT = {["lengthSort"] = "Fastest", ["timestampSort"] = "Most Recent",},},
+			{action = "onOffSetting", targetVariable = "segment_comparison_useColor", prettyName = "Use Comparison Color", description = "Use a seperate color for the ghost that is being compared to, instead of the default color for its collection.",},
+			{action = "changeMenu", target = "color select", options = {colorTarget = "segment_comparison_color",}, display = "Comparison Color", description = "Change the colors for the comparison ghost (if the setting above is on).",},
+			{action = "changeMenu", target = "collection settings list", display = "Choose Additonal Ghosts to Show", description = "Choose which ghosts will be displayed from each collection. These ghosts are shown in addition to the ghost you are comparing to. Each collection is a subfolder in the script's \"Ghosts\" folder.",},
+		},
+	},
+	["run ghost settings"] = {
+		menuType = "normal",
+		title = "Full Run Ghost Settings",
+		description = nil,
+		reservedDescriptionLines = 4,
+		items = {
+			{action = "changeMenu", target = "choose from list", updateDisplay = function(self) self.display = "Collection: " .. run_comparison_collection end, description = "Choose the collection for the full game ghosts. Currently, it's only possible to show one collection at a time.", options = {title = "Choose a Collection", targetVariable = "run_comparison_collection", choices = "collections",},},
+			{action = "stringSetting", targetVariable = "run_comparison_target", prettyName = "Compare To", description = "Select which ghost will be compared to. This ghost will always be shown, even if the settings below are set to 0.", options = {"lengthSort", "timestampSort",}, displayLUT = {["lengthSort"] = "Fastest", ["timestampSort"] = "Most Recent",},},
+			{action = "numberSetting", targetVariable = "run_loadXFastest", prettyName = "Show Fastest", description = "Show the x fastest ghosts.", minValue = 0,},
+			{action = "numberSetting", targetVariable = "run_loadXRecent", prettyName = "Show Recent", description = "Show the x most recently created ghosts.", minValue = 0,},
+			{action = "changeMenu", target = "color select", options = {colorTarget = "run_ghostColor",}, display = "Ghost Color", description = "Change the colors for these ghosts.",},
 		},
 	},
 	["comparison settings"] = {
@@ -4170,11 +4199,17 @@ if true then -- Full Run Mode Settings and Variables
 	run_recording = nil
 	run_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
 	run_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
+	
 	--segment_ghostSettings = {}
+	run_collection = "Unknown"
+	run_loadXFastest = 0
+	run_loadXRecent = 0
+	run_ghostColor = 0xFFFFFFFF
+	
 	run_comparison_ghost = nil -- The ghost we're currently comparing against.
 	run_comparison_collection = "Unknown"
 	run_comparison_target = "lengthSort"
-	run_comparison_useColor = false
+	run_comparison_useColor = false -- No setting for this currently exists
 	run_comparison_color = 0xFFFFFFFF
 	
 	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
@@ -4188,12 +4223,12 @@ function run_loadGhosts()
 	run_ghostsSet = {}
 	run_comparison_ghost = nil
 	
-	local collectionName = "Piper"--PLACEHOLDER
-	local loadXFastest = 3
-	local loadXRecent = 0
-	local ghostColor = 0xFFFF40A0
+	local collectionName = run_collection
+	local loadXFastest = run_loadXFastest
+	local loadXRecent = run_loadXRecent
+	local ghostColor = run_ghostColor
 	
-	local run_comparison_target = "lengthSort"
+	local run_comparison_target = run_comparison_target
 	
 	-- Load extra ghosts (additional to the comparison) from the target collection 
 	local collection = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
@@ -4221,7 +4256,7 @@ function run_loadGhosts()
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
 	local comparison_target = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, run_comparison_target, 1})
 
-	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, run_comparison_collection, ghostColor)
+	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, collectionName, ghostColor)
 	if Ghost.isGhost(ghost) then
 		run_comparison_ghost = ghost
 		if not alreadyLoaded then
