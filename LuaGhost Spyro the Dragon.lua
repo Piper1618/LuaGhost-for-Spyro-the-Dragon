@@ -3922,7 +3922,6 @@ function segment_loadGhosts()
 	segment_ghosts = {}
 	segment_ghostsSet = {}
 	segment_comparison_ghost = nil
-	segment_loadedGhostCache_age = segment_loadedGhostCache_age + 1
 	
 	local function loadUsingCache(meta, collection)
 	
@@ -3931,11 +3930,16 @@ function segment_loadGhosts()
 		
 		if segment_loadedGhostCache[meta.uid] then
 			-- Condition: This ghost is already loaded and doesn't need to be read from file again.
-			local alreadyLoaded = not (segment_loadedGhostCache[meta.uid].age < segment_loadedGhostCache_age)
-			segment_loadedGhostCache[meta.uid].age = segment_loadedGhostCache_age
+			local alreadyLoaded = segment_ghostsSet[meta.uid] or run_ghostsSet[meta.uid]
 			local ghost = segment_loadedGhostCache[meta.uid].data
 			
-			-- It is possible for the same ghost to exist in multiple collections. If the ghost is loaded from multiple collections at the same time, it will prefer to represent a collection that is not the default collection (playerName). For example: if the player exports their golds to a new collection and then changes the color for the gold collection, that will always be the color that is used, even though those ghosts still exist in the default collection.
+			-- It is possible for the same ghost to exist in multiple collections. If the
+			-- ghost is loaded from multiple collections at the same time, it will prefer
+			-- to represent a collection that is not the default collection (playerName).
+			-- For example: if the player exports their golds to a new collection and
+			-- then changes the color for the gold collection, that will always be the
+			-- color that is used, even though those ghosts still exist in the default
+			-- collection.
 			if not alreadyLoaded or collection ~= playerName then
 				ghost.collection = collection
 			end
@@ -3945,7 +3949,7 @@ function segment_loadGhosts()
 			-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
 			local ghost = loadGhostFromMeta(meta)
 			if Ghost.isGhost(ghost) then
-				segment_loadedGhostCache[meta.uid] = {age = segment_loadedGhostCache_age, data = ghost}
+				segment_loadedGhostCache[meta.uid] = {data = ghost}
 				ghost.collection = collection
 				ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
 				return ghost, false
