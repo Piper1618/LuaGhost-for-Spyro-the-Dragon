@@ -4174,7 +4174,7 @@ if true then -- Full Run Mode Settings and Variables
 	run_comparison_ghost = nil -- The ghost we're currently comparing against.
 	run_comparison_collection = "Unknown"
 	run_comparison_target = "lengthSort"
-	run_comparison_useColor = true
+	run_comparison_useColor = false
 	run_comparison_color = 0xFFFFFFFF
 	
 	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
@@ -4191,6 +4191,7 @@ function run_loadGhosts()
 	local collectionName = "Piper"--PLACEHOLDER
 	local loadXFastest = 3
 	local loadXRecent = 0
+	local ghostColor = 0xFFFF40A0
 	
 	local run_comparison_target = "lengthSort"
 	
@@ -4200,7 +4201,7 @@ function run_loadGhosts()
 	if type(collection) == "table" then
 		-- Load the fastest ghosts from this collection
 		for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
-			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName, ghostColor)
 			if Ghost.isGhost(ghost) and not alreadyLoaded then
 				table.insert(run_ghosts, ghost)
 				run_ghostsSet[ghost.uid] = true
@@ -4209,7 +4210,7 @@ function run_loadGhosts()
 		
 		-- Load the most recent ghosts from this collection
 		for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
-			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName)
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName, ghostColor)
 			if Ghost.isGhost(ghost) and not alreadyLoaded then
 				table.insert(run_ghosts, ghost)
 				run_ghostsSet[ghost.uid] = true
@@ -4220,7 +4221,7 @@ function run_loadGhosts()
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
 	local comparison_target = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, run_comparison_target, 1})
 
-	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, run_comparison_collection)
+	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, run_comparison_collection, ghostColor)
 	if Ghost.isGhost(ghost) then
 		run_comparison_ghost = ghost
 		if not alreadyLoaded then
@@ -5060,7 +5061,7 @@ function loadRecordingFromFile(path)
 	return newGhost
 end
 
-function loadRecordingUsingCache(meta, collection)
+function loadRecordingUsingCache(meta, collection, color)
 
 	--Make sure this thing is real
 	if type(meta) ~= "table" then return nil, false end
@@ -5080,7 +5081,7 @@ function loadRecordingUsingCache(meta, collection)
 		if not alreadyLoaded or collection ~= playerName then
 			ghost.collection = collection
 		end
-		ghost.color = (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
+		ghost.color = color or (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
 		return ghost, alreadyLoaded
 	else
 		-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
@@ -5088,7 +5089,7 @@ function loadRecordingUsingCache(meta, collection)
 		if Ghost.isGhost(ghost) then
 			loadedGhostCache[meta.uid] = {data = ghost}
 			ghost.collection = collection
-			ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
+			ghost.color = color or (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
 			return ghost, false
 		else
 			showError("Something went wrong when loading ghost.")
