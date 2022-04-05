@@ -46,7 +46,7 @@ JSON = assert(loadfile [[libs\JSON.lua]])()
 -- be for old functions that no longer exist.
 -------------------------
 
-if true then
+do
 	-------------------------
 	-- Game Version Stuff
 	-------------------------
@@ -270,7 +270,7 @@ levelInfo = {
 -- Update functions
 -------------------------
 
-if true then
+do
 	-------------------------
 	-- Spyro Properties
 	-------------------------
@@ -626,7 +626,7 @@ end
 -- Drawing functions
 -------------------------
 
-if true then
+do
 	showSpyroPosition = 0
 	showArtisanProps = 0
 	showSunnyFlightScanner = false
@@ -1194,7 +1194,7 @@ function drawLine_screen (x1, y1, x2, y2)
 	gui.drawLine(x1, y1, x2, y2, drawColor)
 end
 
-if true then
+do
 	ghostVerts = {}
 
 	local foot_side = 140
@@ -1338,7 +1338,7 @@ end
 -- Settings Saving and Loading
 -------------------------
 
-if true then
+do
 	settings_file = file.combinePath("data", "settings.txt")
 	
 	defaultPlayerName = "Unknown"
@@ -1592,7 +1592,7 @@ end
 -- User input
 -------------------------
 
-if true then -- Settings and defaults for the player inputs
+do -- Settings and defaults for the player inputs
 	
 	controls_default = {
 		manual = {
@@ -2043,7 +2043,7 @@ end
 -- Menus
 -------------------------
 
-if true then
+do
 	-- Menu 
 	
 	menu_state = nil --the name that will determine which data gets loaded for the menu
@@ -3544,7 +3544,7 @@ end
 -- On-screen Messages, Debug Messages, and Errors
 -------------------------
 
-if true then
+do
 	onscreenMessages = {}
 	onscreenMessages_maximum = 5
 	onscreenMessages_left = border_left + 4
@@ -3599,7 +3599,7 @@ function onscreenMessages_update()
 	end
 end
 
-if true then
+do
 	timeFormat_frames = false
 	
 	quickDelta_timer = 0
@@ -3656,7 +3656,7 @@ end
 -- All Recording Modes
 -------------------------
 
-if true then -- Variables used by all recording modes
+do -- Variables used by all recording modes
 	saveStateRequested = false -- This allows the onLoadSavestate() event needs to know whether a savestate was loaded by the player or by this script.
 end
 
@@ -3670,7 +3670,7 @@ end
 -- Manual Mode
 -------------------------
 
-if true then -- Manual Mode Variables
+do -- Manual Mode Variables
 	manual_recording = nil
 	manual_ghost = nil
 	manual_stateExists = false
@@ -3697,7 +3697,7 @@ end
 -- Segment Mode
 -------------------------
 
-if true then -- Segment Mode Settings and Variables
+do -- Segment Mode Settings and Variables
 	segment_settings = {}
 	
 	segment_recording = nil
@@ -4030,7 +4030,7 @@ end
 -- File Tracking and Handling
 -------------------------
 
-if true then
+do
 	ghostData = {}
 	collections = {}
 	savestateData = {}
@@ -4643,7 +4643,7 @@ function Ghost:changeSubSegmentOffset(frame)
 	-- Calculate new offset so that ghost will render the desired frame on the next update
 	self.subSegmentOffset = frame - (emu.framecount() - self.zeroFrame)
 	
-	if true then return end
+	do return end
 	
 	-- If we're moving the ghost forward, then
 	-- Ghost:updatePlayback() can handle it, but if we're
@@ -4852,7 +4852,7 @@ end
 -- Skins
 -------------------------
 
-if true then
+do
 	--[[
 	This section contains code that can overwrite Spyro's
 	palette data. The texture data cannot be overwritten by
@@ -5637,7 +5637,7 @@ end
 -- Startup
 -------------------------
 
-if true then
+do
 	
 	math.randomseed(os.time())
 	
