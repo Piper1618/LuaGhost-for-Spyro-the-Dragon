@@ -3919,43 +3919,6 @@ function segment_loadGhosts()
 	segment_ghostsSet = {}
 	segment_comparison_ghost = nil
 	
-	local function loadUsingCache(meta, collection)
-	
-		--Make sure this thing is real
-		if type(meta) ~= "table" then return nil, false end
-		
-		if loadedGhostCache[meta.uid] then
-			-- Condition: This ghost is already loaded and doesn't need to be read from file again.
-			local alreadyLoaded = segment_ghostsSet[meta.uid] or run_ghostsSet[meta.uid]
-			local ghost = loadedGhostCache[meta.uid].data
-			
-			-- It is possible for the same ghost to exist in multiple collections. If the
-			-- ghost is loaded from multiple collections at the same time, it will prefer
-			-- to represent a collection that is not the default collection (playerName).
-			-- For example: if the player exports their golds to a new collection and
-			-- then changes the color for the gold collection, that will always be the
-			-- color that is used, even though those ghosts still exist in the default
-			-- collection.
-			if not alreadyLoaded or collection ~= playerName then
-				ghost.collection = collection
-			end
-			ghost.color = (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
-			return ghost, alreadyLoaded
-		else
-			-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
-			local ghost = loadGhostFromMeta(meta)
-			if Ghost.isGhost(ghost) then
-				loadedGhostCache[meta.uid] = {data = ghost}
-				ghost.collection = collection
-				ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
-				return ghost, false
-			else
-				showError("Something went wrong when loading ghost.")
-				return nil, false
-			end
-		end
-	end
-	
 	-- For each collection, load some ghosts from it (maybe).
 	for collectionName in pairs(collections) do
 				
@@ -3968,7 +3931,7 @@ function segment_loadGhosts()
 				-- been set for this collection.
 				
 				for i = 1, #(collection.lengthSort or {}) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
+					local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
 						segment_ghostsSet[ghost.uid] = true
@@ -3982,7 +3945,7 @@ function segment_loadGhosts()
 				-- Load the fastest ghosts from this collection
 				local loadXFastest = (segment_ghostSettings[collectionName] or {}).showFastest or 0
 				for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
+					local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
 						segment_ghostsSet[ghost.uid] = true
@@ -3992,7 +3955,7 @@ function segment_loadGhosts()
 				-- Load the most recent ghosts from this collection
 				local loadXRecent = (segment_ghostSettings[collectionName] or {}).showRecent or 0
 				for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.timestampSort[i], collectionName)
+					local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName)
 					if Ghost.isGhost(ghost) and not alreadyLoaded then
 						table.insert(segment_ghosts, ghost)
 						segment_ghostsSet[ghost.uid] = true
@@ -4005,7 +3968,7 @@ function segment_loadGhosts()
 	-- Determine which ghost to compare to, loading it if it is not already loaded.	
 	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
-	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
+	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, segment_comparison_collection)
 	if Ghost.isGhost(ghost) then
 		segment_comparison_ghost = ghost
 		if not alreadyLoaded then
@@ -4018,7 +3981,7 @@ function segment_loadGhosts()
 	end
 	
 	-- Force unused ghosts to be removed from the cache
-	segment_cleanCachedGhosts = true
+	cleanCachedGhosts = true
 end
 
 function segment_start()
@@ -4221,7 +4184,56 @@ if true then -- Full Run Mode Settings and Variables
 end
 
 function run_loadGhosts()
+	run_ghosts = {}
+	run_ghostsSet = {}
+	run_comparison_ghost = nil
+	
+	local collectionName = "Piper"--PLACEHOLDER
+	local loadXFastest = 3
+	local loadXRecent = 0
+	
+	local run_comparison_target = "lengthSort"
+	
+	-- Load extra ghosts (additional to the comparison) from the target collection 
+	local collection = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
+	
+	if type(collection) == "table" then
+		-- Load the fastest ghosts from this collection
+		for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
+			if Ghost.isGhost(ghost) and not alreadyLoaded then
+				table.insert(run_ghosts, ghost)
+				run_ghostsSet[ghost.uid] = true
+			end
+		end
+		
+		-- Load the most recent ghosts from this collection
+		for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName)
+			if Ghost.isGhost(ghost) and not alreadyLoaded then
+				table.insert(run_ghosts, ghost)
+				run_ghostsSet[ghost.uid] = true
+			end
+		end
+	end
+	
+	-- Determine which ghost to compare to, loading it if it is not already loaded.	
+	local comparison_target = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, run_comparison_target, 1})
 
+	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, run_comparison_collection)
+	if Ghost.isGhost(ghost) then
+		run_comparison_ghost = ghost
+		if not alreadyLoaded then
+			table.insert(run_ghosts, ghost)
+			run_ghostsSet[ghost.uid] = true
+		end
+		if run_comparison_useColor then
+			ghost.color = run_comparison_color or 0xFFFFFFFF
+		end
+	end
+	
+	-- Force unused ghosts to be removed from the cache
+	cleanCachedGhosts = true
 end
 
 function run_start()
@@ -5046,6 +5058,43 @@ function loadRecordingFromFile(path)
 	newGhost.dragonSplits = newDragonSplits
 	newGhost.segmentSplits = newSegmentSplits
 	return newGhost
+end
+
+function loadRecordingUsingCache(meta, collection)
+
+	--Make sure this thing is real
+	if type(meta) ~= "table" then return nil, false end
+	
+	if loadedGhostCache[meta.uid] then
+		-- Condition: This ghost is already loaded and doesn't need to be read from file again.
+		local alreadyLoaded = segment_ghostsSet[meta.uid] or run_ghostsSet[meta.uid]
+		local ghost = loadedGhostCache[meta.uid].data
+		
+		-- It is possible for the same ghost to exist in multiple collections. If the
+		-- ghost is loaded from multiple collections at the same time, it will prefer
+		-- to represent a collection that is not the default collection (playerName).
+		-- For example: if the player exports their golds to a new collection and
+		-- then changes the color for the gold collection, that will always be the
+		-- color that is used, even though those ghosts still exist in the default
+		-- collection.
+		if not alreadyLoaded or collection ~= playerName then
+			ghost.collection = collection
+		end
+		ghost.color = (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
+		return ghost, alreadyLoaded
+	else
+		-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
+		local ghost = loadGhostFromMeta(meta)
+		if Ghost.isGhost(ghost) then
+			loadedGhostCache[meta.uid] = {data = ghost}
+			ghost.collection = collection
+			ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
+			return ghost, false
+		else
+			showError("Something went wrong when loading ghost.")
+			return nil, false
+		end
+	end
 end
 
 -------------------------
@@ -6045,6 +6094,20 @@ while true do
 			ghost:draw()
 		end
 		
+		-- Update the locations of ghosts for this frame
+		for i, ghost in ipairs(run_ghosts) do
+			Ghost.update(ghost)
+		end
+		-- Sort ghosts by distance in front of the camera
+		table.sort(run_ghosts, function(a, b)
+			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
+			return a._cameraRange > b._cameraRange
+		end)
+		-- Draw the ghosts
+		for i, ghost in ipairs(run_ghosts) do
+			ghost:draw()
+		end
+		
 		-- Update health as needed when loading savestates
 		if (setHealth_armed or -1) > -1 and loadingState == -1 then
 			memory.write_u32_le(0x078BBC + m[4], setHealth_armed)
@@ -6117,7 +6180,8 @@ while true do
 	end
 	
 	-- Unload any ghosts (from loadedGhostCache) that are no longer being used
-	if segment_cleanCachedGhosts and not segment_preloadAllGhosts then
+	if cleanCachedGhosts and not segment_preloadAllGhosts then
+		cleanCachedGhosts = false
 		for k, v in pairs(loadedGhostCache) do
 			if not segment_ghostsSet[k] and not run_ghostsSet[k] then
 				loadedGhostCache[k] = nil
