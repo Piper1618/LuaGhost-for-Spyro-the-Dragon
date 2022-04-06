@@ -5112,7 +5112,6 @@ function loadRecordingFromFile(path)
 			
 		elseif string.starts(line, "Keyframes") then
 			if (newGhost.compression or "none") == "diff" then
-				print(angleFactor)
 				local lastKeyframe = {0, {0, 0, 0,},}
 				local lastAngle = 0
 				while true do
