@@ -1430,6 +1430,11 @@ do
 		"segment_preloadAllGhosts",
 		"segment_autoSaveGhosts",
 		"segment_showSubSegmentGhosts",
+		"run_comparison_collection",
+		"run_comparison_target",
+		"run_loadXFastest",
+		"run_loadXRecent",
+		"run_ghostColor",
 		"controls",
 		"segment_settings",
 	}
