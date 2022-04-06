@@ -1410,7 +1410,7 @@ function settings_load()
 		local settingsPackage = JSON:decode(f:read("*a"))
 		
 		for i, v in ipairs(globalSettings) do
-			if settingsPackage[v] then
+			if settingsPackage[v] ~= nil then
 				_G[v] = settingsPackage[v]
 			end
 		end
