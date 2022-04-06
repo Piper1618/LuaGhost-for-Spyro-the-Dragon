@@ -4029,6 +4029,7 @@ end
 
 function segment_halt()
 	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
+	if recordingMode == "run" and not run_showSegmentGhosts then return end
 	
 	segment_dragonSplitArmed = false
 	
