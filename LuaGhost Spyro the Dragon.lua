@@ -3816,7 +3816,8 @@ function getFormattedTime(frames, forceSign, forceFrames)
 		color = "green"
 	end
 	
-	local minutes = math.floor((frames * sign) / (fps * 60))
+	local hours = math.floor((frames * sign) / (fps * 3600))
+	local minutes = math.floor((frames * sign) / (fps * 60)) - hours * 60
 	local seconds = math.floor((frames * sign) / fps) % 60
 	
 	local subSecond = (frames * sign) % fps
@@ -3830,10 +3831,14 @@ function getFormattedTime(frames, forceSign, forceFrames)
 	end
 	
 	local output = (sign == 1) and plus or "-"
-	if minutes > 0 then
-		output = output .. tostring(minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
+	if hours > 0 then
+		output = output .. tostring(hours) .. ":" .. string.format("%02d", minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
 	else
-		output = output .. tostring(seconds) .. subSecond
+		if minutes > 0 then
+			output = output .. tostring(minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
+		else
+			output = output .. tostring(seconds) .. subSecond
+		end
 	end
 	
 	return output, color
