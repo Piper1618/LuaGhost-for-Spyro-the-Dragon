@@ -1929,6 +1929,7 @@ action_data = {
 			showMessage("Set new savepoint and started recording")
 			createQuickSavestate()
 			manual_ghost = nil
+			rebuildAllGhosts = true
 			manual_recording = Ghost.startNewRecording("manual")
 			manual_stateExists = true
 		end,
@@ -1967,6 +1968,7 @@ action_data = {
 			showMessage("Cleared savepoint and recordings")
 			manual_recording = nil
 			manual_ghost = nil
+			rebuildAllGhosts = true
 			manual_stateExists = false
 		end,
 	},
@@ -1981,6 +1983,7 @@ action_data = {
 				showMessage("Saved recording")
 				manual_recording:endRecording()
 				manual_ghost = manual_recording
+				rebuildAllGhosts = true
 				manual_recording = nil
 			else
 				showMessage("No recording to update")
@@ -2001,6 +2004,7 @@ action_data = {
 				if Ghost.isGhost(manual_recording) then
 					showMessage("Saving current recording and playing it")
 					manual_ghost = manual_recording
+					rebuildAllGhosts = true
 					manual_recording = nil
 					manual_ghost:startPlayback()
 				else
@@ -3860,12 +3864,16 @@ end
 
 do -- Variables used by all recording modes
 	saveStateRequested = false -- This allows the onLoadSavestate() event needs to know whether a savestate was loaded by the player or by this script.
+	
+	allGhosts = {}
+	rebuildAllGhosts = false
 end
 
 function clearAllRecordingData()
 	tryRunGlobalFunction("manual_clearData")
 	tryRunGlobalFunction("segment_clearData")
 	tryRunGlobalFunction("run_clearData")
+	allGhosts = {}
 end
 
 -------------------------
@@ -3883,6 +3891,7 @@ function manual_clearData()
 	
 	manual_recording = nil
 	manual_ghost = nil
+	rebuildAllGhosts = true
 	manual_stateExists = false
 end
 
@@ -3935,6 +3944,7 @@ function segment_clearData()
 	
 	segment_recording = nil
 	segment_ghosts = {}
+	rebuildAllGhosts = true
 	segment_comparison_ghost = nil
 	segment_lastRecording = nil
 	segment_readyToUpdate = false
@@ -3946,6 +3956,7 @@ end
 
 function segment_loadGhosts()
 	segment_ghosts = {}
+	rebuildAllGhosts = true
 	segment_ghostsSet = {}
 	segment_comparison_ghost = nil
 	
@@ -4226,6 +4237,7 @@ end
 
 function run_loadGhosts()
 	run_ghosts = {}
+	rebuildAllGhosts = true
 	run_ghostsSet = {}
 	run_comparison_ghost = nil
 	
@@ -5980,6 +5992,7 @@ end
 -------------------------
 
 function onLoadSavestate()
+	rebuildAllGhosts = true
 	
 	requestedState = nil
 	os.remove(file.combinePath("data", "requestedState.txt"))
@@ -6200,7 +6213,6 @@ while true do
 		
 		-- Handle recording		
 		Ghost.update(manual_recording)
-		Ghost.update(manual_ghost)
 		
 		Ghost.update(segment_recording)
 		Ghost.update(run_recording)
@@ -6215,31 +6227,29 @@ while true do
 			end
 		end
 		
-		-- Update the locations of ghosts for this frame
-		for i, ghost in ipairs(segment_ghosts) do
-			Ghost.update(ghost)
-		end
-		-- Sort ghosts by distance in front of the camera
-		table.sort(segment_ghosts, function(a, b)
-			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
-			return a._cameraRange > b._cameraRange
-		end)
-		-- Draw the ghosts
-		for i, ghost in ipairs(segment_ghosts) do
-			ghost:draw()
+		if rebuildAllGhosts then
+			rebuildAllGhosts = false
+			allGhosts = {}
+			if manual_ghost ~= nil then table.insert(allGhosts, manual_ghost) end
+			for i, ghost in ipairs(segment_ghosts) do
+				table.insert(allGhosts, ghost)
+			end
+			for i, ghost in ipairs(run_ghosts) do
+				table.insert(allGhosts, ghost)
+			end
 		end
 		
 		-- Update the locations of ghosts for this frame
-		for i, ghost in ipairs(run_ghosts) do
+		for i, ghost in ipairs(allGhosts) do
 			Ghost.update(ghost)
 		end
 		-- Sort ghosts by distance in front of the camera
-		table.sort(run_ghosts, function(a, b)
+		table.sort(allGhosts, function(a, b)
 			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
 			return a._cameraRange > b._cameraRange
 		end)
 		-- Draw the ghosts
-		for i, ghost in ipairs(run_ghosts) do
+		for i, ghost in ipairs(allGhosts) do
 			ghost:draw()
 		end
 		
