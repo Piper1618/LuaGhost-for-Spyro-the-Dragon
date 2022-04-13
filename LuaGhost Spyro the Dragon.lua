@@ -2205,7 +2205,9 @@ do
 		self.keyboard_output = string.trim(self.keyboard_output)
 		if (self.keyboard_output or "") ~= "" then
 			playerName = self.keyboard_output
-			segment_comparison_collection = playerName collections[playerName] = true
+			segment_comparison_collection = playerName
+			run_collection = playerName
+			collections[playerName] = true
 		end
 		menu_back()
 	end,}
