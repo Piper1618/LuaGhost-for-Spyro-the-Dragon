@@ -4049,6 +4049,12 @@ end
 
 function segment_halt()
 	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
+	
+	
+	-- Handle full runs
+	if recordingMode == "run" and run_recording ~= nil then
+		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
+	end
 	if recordingMode == "run" and not run_showSegmentGhosts then return end
 	
 	segment_dragonSplitArmed = false
@@ -4088,11 +4094,6 @@ function segment_halt()
 		if segment_autoSaveGhosts then
 			handleAction("updateSegment")
 		end
-	end
-	
-	-- Handle full runs
-	if recordingMode == "run" and run_recording ~= nil then
-		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
 	end
 end
 
@@ -4347,10 +4348,22 @@ function run_updateRankings()
 		local newTime = emu.framecount() - v.zeroFrame
 		for k, t in pairs(v.segmentSplits) do
 			if t > oldTime and t <= newTime then
+				print("split: " .. tostring(v.rankingName))
 				for ii, vv in ipairs(run_ranking) do
 					if ii >= i then break end
 					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
 						table.insert(overtakes, {v, vv})
+					end
+				end
+				-- Check for overtaking the player
+				if v ~= run_recording and k == getSegmentHandle() then
+					table.insert(overtakes, {v, run_recording})
+				end
+				if v == run_recording then
+					for ii, vv in ipairs(run_ranking) do
+						if vv.segmentSplits[k] and vv.segmentSplits[k] < t then
+							table.insert(overtakes, {vv, v})
+						end
 					end
 				end
 				break
@@ -4390,7 +4403,7 @@ function run_start()
 	
 	run_recording = Ghost.startNewRecording("run")
 	
-	--table.insert(run_ranking, run_recording)
+	table.insert(run_ranking, 1, run_recording)
 	run_recording.rankingName = "P"
 	if #run_ranking > 1 then
 		run_showRanking = true
@@ -6361,25 +6374,28 @@ while true do
 		
 		-- Update rankings in full run mode
 		if recordingMode == "run" then
-			run_updateRankings()
-		end
-		
-		-- show current rankings in full run mode
-		if recordingMode == "run" and run_showRanking then
-			local x = border_right - 45
-			local y = 60
-			local dy = 14--vertical spacing between lines
-			for i, v in ipairs(run_ranking) do
-				gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
-				y = y + dy
-				if v.ghostLevel == currentLevel and v._position then
-					local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3])
-					if gx > 0 then
-						gui.drawText(gx + 8, gy - 20, v.rankingName, v.color, nil, 12, nil, nil, "right")
+			if run_recording ~= nil then
+				run_updateRankings()
+			end
+			-- show current rankings in full run mode
+			if run_showRanking then
+gui.drawText(border_right - 5, 30, getSegmentHandle(), "white", "black", 12, nil, nil, "right")
+				local x = border_right - 45
+				local y = 60
+				local dy = 14--vertical spacing between lines
+				for i, v in ipairs(run_ranking) do
+					gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
+					y = y + dy
+					if v.ghostLevel == currentLevel and v._position then
+						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3])
+						if gx > 0 then
+							gui.drawText(gx + 8, gy - 20, v.rankingName, v.color, nil, 12, nil, nil, "right")
+						end
 					end
 				end
 			end
 		end
+	
 		
 		-- Update health as needed when loading savestates
 		if (setHealth_armed or -1) > -1 and loadingState == -1 then
