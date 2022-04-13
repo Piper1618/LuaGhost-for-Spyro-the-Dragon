@@ -4229,6 +4229,9 @@ if true then -- Full Run Mode Settings and Variables
 	run_comparison_useColor = false -- No setting for this currently exists
 	run_comparison_color = 0xFFFFFFFF
 	
+	run_ranking = {}
+	run_rankingNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",}
+	
 	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
 	run_readyToUpdate = false
 	
@@ -4288,8 +4291,26 @@ function run_loadGhosts()
 		end
 	end
 	
+	-- Establish ranking names and starting positions
+	run_ranking = {}
+	for i, v in ipairs(run_ghosts) do
+		table.insert(run_ranking, v)
+	end
+	table.sort(run_ranking, function(a, b)
+		return a.length < b.length
+	end)
+	for i, v in ipairs(run_ranking) do
+		v.rankingName = run_getRankingName(i)
+		v.rankingLastFrame = 0
+	end
+	
 	-- Force unused ghosts to be removed from the cache
 	cleanCachedGhosts = true
+end
+
+function run_getRankingName(i)
+	if run_rankingNames[i] then return run_rankingNames[i] end
+	return tostring(i - #run_rankingNames)
 end
 
 function run_start()
