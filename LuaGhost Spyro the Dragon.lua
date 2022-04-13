@@ -4108,6 +4108,9 @@ function segment_restart(targetSegment)
 		segment_lastRecording = nil
 		segment_readyToUpdate = false
 		if recordingMode == "segment" or recordingMode == "run" then segment_levelStartArmed = true end
+		run_recording = nil
+		run_lastRecording = nil
+		run_readyToUpdate = false
 		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then run_runStartArmed = true end
 		spyroControl = 0
 		
@@ -6006,6 +6009,11 @@ function onLoadSavestate()
 	
 		if recordingMode == "segment" or recordingMode == "run" then
 			for i, ghost in ipairs(segment_ghosts) do
+				if Ghost.isGhost(ghost) then
+					ghost:endPlayback()
+				end
+			end
+			for i, ghost in ipairs(run_ghosts) do
 				if Ghost.isGhost(ghost) then
 					ghost:endPlayback()
 				end
