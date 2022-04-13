@@ -4214,20 +4214,17 @@ end
 -------------------------
 
 if true then -- Full Run Mode Settings and Variables
-	--run_settings = {}
 	
 	run_recording = nil
 	run_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
 	run_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
 	
-	--segment_ghostSettings = {}
 	run_collection = "Unknown"
 	run_loadXFastest = 0
 	run_loadXRecent = 0
 	run_ghostColor = 0xFFFFFFFF
 	
 	run_comparison_ghost = nil -- The ghost we're currently comparing against.
-	--run_comparison_collection = "Unknown"
 	run_comparison_target = "lengthSort"
 	run_comparison_useColor = false -- No setting for this currently exists
 	run_comparison_color = 0xFFFFFFFF
