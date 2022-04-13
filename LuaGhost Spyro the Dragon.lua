@@ -4231,6 +4231,7 @@ if true then -- Full Run Mode Settings and Variables
 	
 	run_ranking = {}
 	run_rankingNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",}
+	run_showRanking = false
 	
 	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
 	run_readyToUpdate = false
@@ -4240,11 +4241,34 @@ if true then -- Full Run Mode Settings and Variables
 	run_showSegmentGhosts = true
 end
 
+function run_clearData()
+	run_showRanking = false
+	
+	run_recording = nil
+	run_ghosts = {}
+	rebuildAllGhosts = true
+	run_ghostsSet = {}
+	
+	run_clearRanking()
+	
+	run_lastRecording = nil
+	run_readyToUpdate = false
+	run_runStartArmed = false
+end
+
+function run_clearRanking()
+
+	run_ranking = {}
+	run_showRanking = false
+end
+
 function run_loadGhosts()
 	run_ghosts = {}
 	rebuildAllGhosts = true
 	run_ghostsSet = {}
 	run_comparison_ghost = nil
+	
+	run_clearRanking()
 	
 	local collectionName = run_collection
 	local loadXFastest = run_loadXFastest
@@ -4313,12 +4337,64 @@ function run_getRankingName(i)
 	return tostring(i - #run_rankingNames)
 end
 
+function run_updateRankings()
+	if run_ranking == nil or #run_ranking == 0 then return end
+	
+	local overtakes = {}
+	
+	for i, v in ipairs(run_ranking) do
+		local oldTime = v.rankingLastFrame
+		local newTime = emu.framecount() - v.zeroFrame
+		for k, t in pairs(v.segmentSplits) do
+			if t > oldTime and t <= newTime then
+				for ii, vv in ipairs(run_ranking) do
+					if ii >= i then break end
+					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
+						table.insert(overtakes, {v, vv})
+					end
+				end
+				break
+			end
+		end
+		v.rankingLastFrame = newTime
+	end
+	
+	if #overtakes > 0 then
+		print("Overtake")
+		for i, v in ipairs(overtakes) do
+			print(v[1].rankingName .. " -> " .. v[2].rankingName)
+		
+		end
+	end
+	for i, v in ipairs(overtakes) do
+		local tempGhost = nil
+		for ii, vv in ipairs(run_ranking) do
+			if tempGhost ~= nil then
+				run_ranking[ii] = tempGhost
+				tempGhost = vv
+				if tempGhost == v[1] then break end
+			end
+			if vv == v[1] and tempGhost == nil then break end
+			if vv == v[2] then
+				tempGhost = vv
+				run_ranking[ii] = v[1]
+			end
+		end
+	end
+end
+
 function run_start()
 	if recordingMode ~= "run" then return end
 	
 	showDebug("Run Start")
 	
 	run_recording = Ghost.startNewRecording("run")
+	
+	--table.insert(run_ranking, run_recording)
+	run_recording.rankingName = "P"
+	if #run_ranking > 1 then
+		run_showRanking = true
+	end
 
 	for i, ghost in ipairs(run_ghosts) do
 		if Ghost.isGhost(ghost) then
@@ -4331,6 +4407,8 @@ function run_halt()
 	if recordingMode ~= "run" then return end
 	
 	showDebug("Run End")
+	
+	run_showRanking = false
 	
 	if Ghost.isGhost(run_recording) then
 		run_recording:endRecording()
@@ -6279,6 +6357,28 @@ while true do
 		-- Draw the ghosts
 		for i, ghost in ipairs(allGhosts) do
 			ghost:draw()
+		end
+		
+		-- Update rankings in full run mode
+		if recordingMode == "run" then
+			run_updateRankings()
+		end
+		
+		-- show current rankings in full run mode
+		if recordingMode == "run" and run_showRanking then
+			local x = border_right - 45
+			local y = 60
+			local dy = 14--vertical spacing between lines
+			for i, v in ipairs(run_ranking) do
+				gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
+				y = y + dy
+				if v.ghostLevel == currentLevel and v._position then
+					local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3])
+					if gx > 0 then
+						gui.drawText(gx + 8, gy - 20, v.rankingName, v.color, nil, 12, nil, nil, "right")
+					end
+				end
+			end
 		end
 		
 		-- Update health as needed when loading savestates
