@@ -4348,7 +4348,7 @@ function run_updateRankings()
 		local newTime = emu.framecount() - v.zeroFrame
 		for k, t in pairs(v.segmentSplits) do
 			if t > oldTime and t <= newTime then
-				print("split: " .. tostring(v.rankingName))
+				--print("split: " .. tostring(v.rankingName))
 				for ii, vv in ipairs(run_ranking) do
 					if ii >= i then break end
 					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
@@ -4372,6 +4372,7 @@ function run_updateRankings()
 		v.rankingLastFrame = newTime
 	end
 	
+	--[[ DEBUG: show overtakes in console as they happen
 	if #overtakes > 0 then
 		print("Overtake")
 		for i, v in ipairs(overtakes) do
@@ -4379,6 +4380,7 @@ function run_updateRankings()
 		
 		end
 	end
+	--]]
 	for i, v in ipairs(overtakes) do
 		local tempGhost = nil
 		for ii, vv in ipairs(run_ranking) do
