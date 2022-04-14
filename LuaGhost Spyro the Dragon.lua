@@ -6381,8 +6381,7 @@ while true do
 			end
 			-- show current rankings in full run mode
 			if run_showRanking then
-gui.drawText(border_right - 5, 30, getSegmentHandle(), "white", "black", 12, nil, nil, "right")
-				local x = border_right - 45
+				local x = border_right - 20
 				local y = 60
 				local dy = 14--vertical spacing between lines
 				for i, v in ipairs(run_ranking) do
