@@ -4406,7 +4406,7 @@ function run_start()
 	run_recording = Ghost.startNewRecording("run")
 	
 	table.insert(run_ranking, 1, run_recording)
-	run_recording.rankingName = "P"
+	run_recording.rankingName = "Player"
 	if #run_ranking > 1 then
 		run_showRanking = true
 	end
