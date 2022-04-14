@@ -6387,9 +6387,9 @@ gui.drawText(border_right - 5, 30, getSegmentHandle(), "white", "black", 12, nil
 					gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
 					y = y + dy
 					if v.ghostLevel == currentLevel and v._position then
-						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3])
+						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3] + 280)
 						if gx > 0 then
-							gui.drawText(gx + 8, gy - 20, v.rankingName, v.color, nil, 12, nil, nil, "right")
+							gui.drawText(gx, gy, v.rankingName, v.color, nil, 12, nil, nil, "center", "bottom")
 						end
 					end
 				end
