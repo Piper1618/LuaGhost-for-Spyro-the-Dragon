@@ -3843,7 +3843,7 @@ function getFormattedTime(frames, forceSign, forceFrames, useLetters)
 	local subSecondType =  timeFormat_frames
 	if forceFrames ~= nil then subSecondType = forceFrames end
 	if subSecondType then
-		if not useLetters then secondMarker == "'" end
+		if not useLetters then secondMarker = "'" end
 		subSecond = secondMarker .. string.format("%02d", subSecond) .. frameMarker
 	else
 		subSecond = "." .. string.format("%02d", subSecond / fps * 100) .. secondMarker
@@ -4246,6 +4246,11 @@ if true then -- Full Run Mode Settings and Variables
 	run_ranking = {}
 	run_rankingNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",}
 	run_showRanking = false
+	run_rankingPlace = 0
+	
+	run_showRankList = false
+	run_showRankNames = false
+	run_showRankPlace = true
 	
 	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
 	run_readyToUpdate = false
@@ -4268,6 +4273,8 @@ function run_clearData()
 	run_lastRecording = nil
 	run_readyToUpdate = false
 	run_runStartArmed = false
+	
+	run_rankingPlace = 0
 end
 
 function run_clearRanking()
@@ -4417,6 +4424,8 @@ function run_start()
 	showDebug("Run Start")
 	
 	run_recording = Ghost.startNewRecording("run")
+	
+	run_rankingPlace = 0
 	
 	table.insert(run_ranking, 1, run_recording)
 	run_recording.rankingName = "Player"
@@ -6116,6 +6125,12 @@ function menu_populateSegments()
 	--]]
 end
 
+function ordinal(n)
+	if n % 10 == 1 then return tostring(n) .. "st" end
+	if n % 10 == 1 then return tostring(n) .. "nd" end
+	return tostring(n) .. "rd"
+end
+
 -------------------------
 -- Events
 -------------------------
@@ -6397,15 +6412,22 @@ while true do
 				local x = border_right - 20
 				local y = 60
 				local dy = 14--vertical spacing between lines
+				run_showRankPlace = 0
 				for i, v in ipairs(run_ranking) do
-					gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
-					y = y + dy
-					if v.ghostLevel == currentLevel and v._position then
+					if v == run_recording then run_showRankPlace = i end
+					if run_showRankList then
+						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
+						y = y + dy
+					end
+					if run_showRankNames and v.ghostLevel == currentLevel and v._position then
 						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3] + 280)
 						if gx > 0 then
 							gui.drawText(gx, gy, v.rankingName, v.color, nil, 12, nil, nil, "center", "bottom")
 						end
 					end
+				end
+				if run_showRankPlace > 0 then
+					gui.drawText(x, 30, ordinal(run_showRankPlace), "white", "black", 18, nil, nil, "right")
 				end
 			end
 		end
