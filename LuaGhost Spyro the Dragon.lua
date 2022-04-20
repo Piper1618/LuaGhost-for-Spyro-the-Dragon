@@ -1426,6 +1426,9 @@ do
 		"run_loadXRecent",
 		"run_ghostColor",
 		"run_showSegmentGhosts",
+		"run_showRankList",
+		"run_showRankNames",
+		"run_showRankPlace",
 		"controls",
 		"segment_settings",
 	}
@@ -2211,6 +2214,8 @@ do
 		end
 		menu_back()
 	end,}
+	
+	menu_rankingInfo = {action = "changeMenu", target = "notice", options = {message = "LuaGhost will attempt to determine the current ranking of the player and the ghost(s) at the end of each segment, but it's not perfect and is easily confused unless everyone follows identical routes. It cannot tell when an overtake happens in the middle of a segment, only at the end."},}
 end
 
 -- This function is used to open the menu when it is closed
@@ -2716,6 +2721,9 @@ menu_data = {
 			{action = "changeMenu", target = "color select", options = {colorTarget = "run_ghostColor",}, display = "Change Ghost Color", description = "Change the colors for these ghosts.",},
 			{action = "onOffSetting", targetVariable = "run_comparison_useColor", prettyName = "Different Comparison Color", description = "Decide whether the ghost you're comparing to should be a different color.",},
 			{action = "changeMenu", target = "color select", options = {colorTarget = "run_comparison_color",}, display = "Change Comparison Color", description = "Change the colors for the ghost you're comparing to, only if the setting above is on.",},
+			{action = "onOffSetting", targetVariable = "run_showRankPlace", prettyName = "Show Current Rank", description = "Show your rank against the ghost(s) you're racing against. Press Square for more info.", squareSelect = menu_rankingInfo,},
+			{action = "onOffSetting", targetVariable = "run_showRankList", prettyName = "Show Complete Ranking", description = "Show the rankings of all the ghosts in a list. Press Square for more info.", squareSelect = menu_rankingInfo,},
+			{action = "onOffSetting", targetVariable = "run_showRankNames", prettyName = "Show Labels for Ghosts", description = "Show a letter above each ghost according to their final placement among the ghosts.",},
 			{action = "onOffSetting", targetVariable = "run_showSegmentGhosts", prettyName = "Show Segment Ghosts", description = "Show segment ghosts during a full run.",},
 		},
 	},
@@ -6127,8 +6135,9 @@ end
 
 function ordinal(n)
 	if n % 10 == 1 then return tostring(n) .. "st" end
-	if n % 10 == 1 then return tostring(n) .. "nd" end
-	return tostring(n) .. "rd"
+	if n % 10 == 2 then return tostring(n) .. "nd" end
+	if n % 10 == 3 then return tostring(n) .. "rd" end
+	return tostring(n) .. "th"
 end
 
 -------------------------
@@ -6412,9 +6421,9 @@ while true do
 				local x = border_right - 20
 				local y = 60
 				local dy = 14--vertical spacing between lines
-				run_showRankPlace = 0
+				run_rankingPlace = 0
 				for i, v in ipairs(run_ranking) do
-					if v == run_recording then run_showRankPlace = i end
+					if v == run_recording then run_rankingPlace = i end
 					if run_showRankList then
 						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
 						y = y + dy
@@ -6426,8 +6435,8 @@ while true do
 						end
 					end
 				end
-				if run_showRankPlace > 0 then
-					gui.drawText(x, 30, ordinal(run_showRankPlace), "white", "black", 18, nil, nil, "right")
+				if run_showRankPlace and run_rankingPlace > 0 then
+					gui.drawText(x, 30, ordinal(run_rankingPlace), "white", "black", 18, nil, nil, "right")
 				end
 			end
 		end
