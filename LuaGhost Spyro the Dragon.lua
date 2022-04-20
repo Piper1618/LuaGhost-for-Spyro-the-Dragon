@@ -2027,7 +2027,7 @@ action_data = {
 					file.createFolder(folder)
 				end
 				
-				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
+				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. getFormattedTime(g.length, false, true, true) .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
 				saveRecordingToFile(file.combinePath(folder, f), segment_lastRecording)
 				
 				addNewGhostMeta({
@@ -2074,7 +2074,7 @@ action_data = {
 					file.createFolder(folder)
 				end
 				
-				local f = "Full Run " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
+				local f = "Full Run " .. getFormattedTime(g.length, false, true, true) .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
 				saveRecordingToFile(file.combinePath(folder, f), run_lastRecording)
 				
 				addNewGhostMeta({
@@ -3810,7 +3810,19 @@ do
 	quickDelta_text = ""
 end
 
-function getFormattedTime(frames, forceSign, forceFrames)
+function getFormattedTime(frames, forceSign, forceFrames, useLetters)
+	if useLetters then
+		local hourMarker = "h"
+		local minuteMarker = "m"
+		local secondMarker = "s"
+		local frameMarker = "f"
+	else
+		local hourMarker = ":"
+		local minuteMarker = ":"
+		local secondMarker = ""
+		local frameMarker = ""
+	end
+
 	local fps = framerate
 	
 	local plus = forceSign and "+" or ""
@@ -3831,17 +3843,18 @@ function getFormattedTime(frames, forceSign, forceFrames)
 	local subSecondType =  timeFormat_frames
 	if forceFrames ~= nil then subSecondType = forceFrames end
 	if subSecondType then
-		subSecond = "'" .. string.format("%02d", subSecond)
+		if not useLetters then secondMarker == "'" end
+		subSecond = secondMarker .. string.format("%02d", subSecond) .. frameMarker
 	else
-		subSecond = "." .. string.format("%02d", subSecond / fps * 100)
+		subSecond = "." .. string.format("%02d", subSecond / fps * 100) .. secondMarker
 	end
 	
 	local output = (sign == 1) and plus or "-"
 	if hours > 0 then
-		output = output .. tostring(hours) .. ":" .. string.format("%02d", minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
+		output = output .. tostring(hours) .. hourMarker .. string.format("%02d", minutes) .. minuteMarker .. string.format("%02d", seconds) .. subSecond
 	else
 		if minutes > 0 then
-			output = output .. tostring(minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
+			output = output .. tostring(minutes) .. minuteMarker .. string.format("%02d", seconds) .. subSecond
 		else
 			output = output .. tostring(seconds) .. subSecond
 		end
