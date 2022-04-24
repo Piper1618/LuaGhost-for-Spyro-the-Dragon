@@ -1669,9 +1669,9 @@ do -- Settings and defaults for the player inputs
 			L3 = "",
 		},
 		run = {
-			RS_left = "",
+			RS_left = "openActionMenu",
 			RS_right = "saveRun",
-			RS_up = "",
+			RS_up = "updateSegment_run",
 			RS_down = "",
 			R3 = "openMenu",
 			L3 = "",
