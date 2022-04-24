@@ -6424,7 +6424,7 @@ while true do
 				run_rankingPlace = 0
 				for i, v in ipairs(run_ranking) do
 					if v == run_recording then run_rankingPlace = i end
-					if run_showRankList then
+					if run_showRankList and i <= 8 then
 						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
 						y = y + dy
 					end
