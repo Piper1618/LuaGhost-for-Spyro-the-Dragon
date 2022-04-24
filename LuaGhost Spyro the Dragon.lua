@@ -4384,7 +4384,7 @@ function run_updateRankings()
 					end
 				end
 				-- Check for overtaking the player
-				if v ~= run_recording and k == getSegmentHandle() then
+				if gameState ~= 12 and v ~= run_recording and k == getSegmentHandle() then
 					table.insert(overtakes, {v, run_recording})
 				end
 				if v == run_recording then
