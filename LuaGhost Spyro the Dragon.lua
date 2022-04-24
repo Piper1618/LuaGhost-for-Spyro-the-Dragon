@@ -27,7 +27,7 @@ do
 end
 
 -- Stop the program from advancing if it is started while no rom is loaded
-if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
+if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for you to load Spyro the Dragon (USA or PAL).") while true do emu.frameadvance() end end
 
 -- I've had trouble with io.popen not always working, so I'm re-implementing it using os.execute
 function io.popen(s)
