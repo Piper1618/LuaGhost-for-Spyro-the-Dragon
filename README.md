@@ -13,7 +13,7 @@ The script is designed to work with BizHawk version 2.6.1 through 2.7. It is NOT
 
 BizHawk has some graphics settings which may cause issues if configured incorrectly, so you'll want to check the settings in "PSX" -> "Options".
 
-- Resolution Management: Should be set to either "Mednafen Mode" or "Tweaked Mednafed Mode".
+- Resolution Management: Should be set to either "Mednafen Mode" or "Tweaked Mednafen Mode".
 - Drawing Area: Should be set to Full (0 to 239 on NTSC or 0 to 287 on PAL).
 - Horizontal Overscan Clipping: Should be set to either "None" or "Clip to Framebuffer".
 
