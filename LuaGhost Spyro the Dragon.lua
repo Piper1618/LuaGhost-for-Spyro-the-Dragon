@@ -3670,13 +3670,17 @@ function draw_endOfRun()
 	
 	--Position of the GUI
 	local x = border_right - 45
-	local y = 120
+	local y = 100
 	local dy = 20--vertical spacing between lines
 	
 	-- Calculate and print run time
 	local endTime = getFormattedTime(run_lastRecording.length)
 	
-	gui.drawText(x, y+dy, "Final Time: " .. endTime, "white", "black", 12, nil, nil, "right")
+	if run_finalRank and run_finalRank > 0 then
+		gui.drawText(x, y+1*dy, "Final Rank: " .. ordinal(run_finalRank), "white", "black", 12, nil, nil, "right")
+	end
+	
+	gui.drawText(x, y+2*dy, "Final Time: " .. endTime, "white", "black", 12, nil, nil, "right")
 
 	-- Calculate and print run delta
 	if menu_runUpdate_delta ~= nil then
@@ -3691,14 +3695,14 @@ function draw_endOfRun()
 		local s, c = getFormattedTime(menu_runUpdate_delta, true, menu_runUpdate_forceFrames)--This should not be calculated here. 
 		s = "Delta: " .. s .. percent
 		
-		gui.drawText(x, y+2*dy, s, c, "black", 12, nil, nil, "right")
+		gui.drawText(x, y+3*dy, s, c, "black", 12, nil, nil, "right")
 	end
 	
 	-- Print input to overwrite run data.
 	if run_readyToUpdate then
 		local updateButton = getInputForAction("saveRun")
 		if updateButton ~= "" then
-			gui.drawText(x, y+3*dy, "Save new ghost with " .. updateButton, "white", "black", 12, nil, nil, "right")
+			gui.drawText(x, y+4*dy, "Save new ghost with " .. updateButton, "white", "black", 12, nil, nil, "right")
 		end
 	end
 end
@@ -4455,7 +4459,14 @@ function run_halt()
 	
 	run_showRanking = false
 	
+	run_finalRank = 0
+	
 	if Ghost.isGhost(run_recording) then
+	
+		if run_rankingPlace > 0 then
+			run_finalRank = run_rankingPlace
+		end
+	
 		run_recording:endRecording()
 		
 		menu_showEndOfRun = true
