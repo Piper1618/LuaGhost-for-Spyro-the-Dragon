@@ -11,6 +11,21 @@
 
 _LuaGhostVersion = "1.1.0"
 
+-- Validate the version of BizHawk that is running
+do
+	local allowedVersions = {
+		["2.6.0"] = true,
+		["2.6.1"] = true,
+		["2.6.2"] = true,
+		["2.6.3"] = true,
+		["2.7.0"] = true,
+	}
+	if not allowedVersions[client.getversion()] then
+		print("ERROR\nIt looks like you're using an incompatible version of BizHawk: " .. client.getversion() .. "\nOnly versions 2.6.x and 2.7.0 are currently supported.")
+		return
+	end
+end
+
 -- Stop the program from advancing if it is started while no rom is loaded
 if emu.getsystemid() ~= "PSX" then print("LuaGhost is running. Waiting for Spyro the Dragon (NTSC or PAL) to be loaded.") while true do emu.frameadvance() end end
 
