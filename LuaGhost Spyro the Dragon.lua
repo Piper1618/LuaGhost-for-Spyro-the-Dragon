@@ -3472,7 +3472,7 @@ function draw_updateSegment()
 			if showDeltaPercent then
 				percent = menu_segmentUpdate_delta / (segment_lastRecording.length - menu_segmentUpdate_delta)
 				local sign = percent >= 0 and "+" or ""
-				percent = "   " .. string.format("%s%.0d%%", sign, percent * 100)
+				percent = "   " .. string.format("%s%d%%", sign, percent * 100)
 			end
 
 			local s, c = getFormattedTime(menu_segmentUpdate_delta, true, menu_segmentUpdate_forceFrames)--This should not be calculated here. 
