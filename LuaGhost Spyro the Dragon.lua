@@ -599,25 +599,52 @@ function detectSegmentEvents()
 	
 	end
 	
+	if run_recording ~= nil and not run_runStartArmed then
+	
+		if currentRoute == "120" then
+			-- Condition: 120% Route, which ends on exiting Gnasty's Loot with all treasure
+			if gameState == 14 and currentLevel == 64 then
+				-- There's no need to check the gem count, because the
+				-- cutscene (gameState 14) only triggers if 120% is completed.
+				run_halt()
+			end
+		elseif currentRoute == "80dragons" then
+			-- Condition: 80 Dragon route, ending on rescuing the final dragon
+			if memory.read_u32_le(0x075750 + m[2]) == 80 then
+				run_halt()
+			end
+		else
+			-- Condition: All other routes, including any%, which should end on killing Gnasty Gnorc
+			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 then
+				run_halt()
+			end
+		end	
+	end
+	
 	-------
 	-- Load Ghost
 	-------
-	if lastLoadingState ~= 10 and loadingState == 10 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" and not segment_levelStartArmed then
+	if lastLoadingState ~= 10 and loadingState == 10 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") and not segment_levelStartArmed then
 		segment_levelStartArmed = true
 		segment_loadGhosts()
+		
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then
+			run_runStartArmed = true
+			run_loadGhosts()
+		end
 	end
 	
 	-------
 	-- Create Save State
 	-------
-	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and recordingMode == "segment" then
+	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") then
 		
 		local folder = "Savestates"
 		if not file.exists(folder) then
 			file.createFolder(folder) 
 		end
 		
-		local f = file.combinePath(folder, displayType .. " - " .. recordingMode .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
+		local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
 		if not file.exists(f) then
 			savestate.save(f)
@@ -631,9 +658,15 @@ function detectSegmentEvents()
 	-------
 	
 	-- Detect start of segment, when gaining control of Spyro after the segment_levelStartArmed flag has been set
-	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed and recordingMode == "segment" then
+	if spyroControl == 0 and lastSpyroControl > 0 and segment_levelStartArmed and (recordingMode == "segment" or recordingMode == "run") then
 		segment_levelStartArmed = false
 		segment_start()
+	end
+	
+	-- Detect start of segment, when gaining control of Spyro after the segment_levelStartArmed flag has been set
+	if spyroControl == 0 and lastSpyroControl > 0 and run_runStartArmed and recordingMode == "run" then
+		run_runStartArmed = false
+		run_start()
 	end
 end
 
@@ -1387,6 +1420,15 @@ do
 		"segment_preloadAllGhosts",
 		"segment_autoSaveGhosts",
 		"segment_showSubSegmentGhosts",
+		"run_collection",
+		"run_comparison_target",
+		"run_loadXFastest",
+		"run_loadXRecent",
+		"run_ghostColor",
+		"run_showSegmentGhosts",
+		"run_showRankList",
+		"run_showRankNames",
+		"run_showRankPlace",
 		"controls",
 		"segment_settings",
 	}
@@ -1626,6 +1668,14 @@ do -- Settings and defaults for the player inputs
 			R3 = "openMenu",
 			L3 = "",
 		},
+		run = {
+			RS_left = "openActionMenu",
+			RS_right = "saveRun",
+			RS_up = "updateSegment_run",
+			RS_down = "",
+			R3 = "openMenu",
+			L3 = "",
+		},
 	}
 	
 	controls = nil
@@ -1636,6 +1686,15 @@ do -- Settings and defaults for the player inputs
 	function menu_downAction() return (controls[recordingMode] or {}).RS_down or "" end
 	function menu_R3Action() return (controls[recordingMode] or {}).R3 or "" end
 	function menu_L3Action() return (controls[recordingMode] or {}).L3 or "" end
+end
+
+function controls_verify()
+	if controls == nil or controls == {} then
+		controls_restoreDefault()
+	end
+	if controls.manual == nil then controls_restoreDefault("manual") end
+	if controls.segment == nil then controls_restoreDefault("segment") end
+	if controls.run == nil then controls_restoreDefault("run") end
 end
 
 function controls_restoreDefault(mode)
@@ -1873,7 +1932,8 @@ action_data = {
 			showMessage("Set new savepoint and started recording")
 			createQuickSavestate()
 			manual_ghost = nil
-			manual_recording = Ghost.startNewRecording()
+			rebuildAllGhosts = true
+			manual_recording = Ghost.startNewRecording("manual")
 			manual_stateExists = true
 		end,
 	},
@@ -1898,7 +1958,7 @@ action_data = {
 				manual_stateExists = true
 			end
 			
-			manual_recording = Ghost.startNewRecording()
+			manual_recording = Ghost.startNewRecording("manual")
 		end,
 	},
 	{
@@ -1911,6 +1971,7 @@ action_data = {
 			showMessage("Cleared savepoint and recordings")
 			manual_recording = nil
 			manual_ghost = nil
+			rebuildAllGhosts = true
 			manual_stateExists = false
 		end,
 	},
@@ -1925,6 +1986,7 @@ action_data = {
 				showMessage("Saved recording")
 				manual_recording:endRecording()
 				manual_ghost = manual_recording
+				rebuildAllGhosts = true
 				manual_recording = nil
 			else
 				showMessage("No recording to update")
@@ -1945,6 +2007,7 @@ action_data = {
 				if Ghost.isGhost(manual_recording) then
 					showMessage("Saving current recording and playing it")
 					manual_ghost = manual_recording
+					rebuildAllGhosts = true
 					manual_recording = nil
 					manual_ghost:startPlayback()
 				else
@@ -1967,7 +2030,7 @@ action_data = {
 					file.createFolder(folder)
 				end
 				
-				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. bizstring.replace(bizstring.replace(getFormattedTime(g.length, false, true), ":", "m"), "'", "s") .. "f" .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
+				local f = tostring(g.segment[2]) .. " " .. levelInfo[g.segment[2]].name .. " " .. g.segment[3] .. " " .. getFormattedTime(g.length, false, true, true) .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
 				saveRecordingToFile(file.combinePath(folder, f), segment_lastRecording)
 				
 				addNewGhostMeta({
@@ -1985,6 +2048,65 @@ action_data = {
 				segment_readyToUpdate = false
 				showMessage("Saved recording!")
 			end
+		end,
+	},
+	{
+		name = "updateSegment_run",
+		
+		prettyName = "Save Segment Ghost",
+		recordingMode = "run",
+		description = "Save the most recently completed segment ghost. (Only available after completing a segment)",
+		actionFunction = function()
+			-- Proxy to the regular updateSegment action.
+			-- This must be done this way because actions cannot currently
+			-- belong to multiple recordingModes unless they are global.
+			handleAction("updateSegment")
+		end,
+	},
+	{
+		name = "saveRun",
+		
+		prettyName = "Save Run Ghost",
+		recordingMode = "run",
+		description = "Save the most recently completed full run ghost.",
+		actionFunction = function()
+			if run_readyToUpdate and run_lastRecording ~= nil then
+				local g = run_lastRecording
+				local folder = file.combinePath("Ghosts", playerName, recordingModeFolderNames[g.mode], getCategoryFolderName(g.category))
+				if not file.exists(folder) then
+					file.createFolder(folder)
+				end
+				
+				local f = "Full Run " .. getFormattedTime(g.length, false, true, true) .. " " .. g.playerName .. " - " .. bizstring.replace(g.uid, g.playerName, "") .. ".txt"
+				saveRecordingToFile(file.combinePath(folder, f), run_lastRecording)
+				
+				addNewGhostMeta({
+					segment = segmentToString(run_lastRecording.segment),
+					filePath = file.combinePath(folder, f),
+					playerName = run_lastRecording.playerName,
+					uid = run_lastRecording.uid,
+					category = run_lastRecording.category,
+					collection = playerName,
+					length = run_lastRecording.length,
+					timestamp = run_lastRecording.timestamp,
+					mode = run_lastRecording.mode,
+				})
+				
+				run_readyToUpdate = false
+				menu_showEndOfRun = false
+				showMessage("Saved recording!")
+			end
+		end,
+	},
+	{
+		name = "startRun",
+		
+		prettyName = "Start Run",
+		recordingMode = "run",
+		description = "Begin a new run from the beginning.",
+		actionFunction = function()
+			bonkCounter = 0
+			segment_restart({"World", 10, "Entry"})
 		end,
 	},
 	{
@@ -2086,10 +2208,14 @@ do
 		self.keyboard_output = string.trim(self.keyboard_output)
 		if (self.keyboard_output or "") ~= "" then
 			playerName = self.keyboard_output
-			segment_comparison_collection = playerName collections[playerName] = true
+			segment_comparison_collection = playerName
+			run_collection = playerName
+			collections[playerName] = true
 		end
 		menu_back()
 	end,}
+	
+	menu_rankingInfo = {action = "changeMenu", target = "notice", options = {message = "LuaGhost will attempt to determine the current ranking of the player and the ghost(s) at the end of each segment, but it's not perfect and is easily confused unless everyone follows identical routes. It cannot tell when an overtake happens in the middle of a segment, only at the end."},}
 end
 
 -- This function is used to open the menu when it is closed
@@ -2340,7 +2466,7 @@ menu_data = {
 			{action = "changeMenu", target = "action menu", description = "A set of actions relating to the current recording mode."},
 			{action = "changeMenu", target = "warp menu", display = "Warp to Segment", options = 0, description = "Load segment savepoints created in segment recording mode for the current route. Also access warp settings here."},
 			{action = "changeMenu", target = "display", description = "Change settings for Spyro's palette, bonk counter, and similar."},
-			{action = "changeMenu", target = "segment mode settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
+			{action = "changeMenu", target = "ghost settings", description = "When in segment mode, choose which ghost to compare to, additional ghosts to show, ghost colors, and similar."},
 			{action = "changeMenu", target = "keyboard input", description = "Change the name that is saved in your ghost recordings.", updateDisplay = function(self) self.display = "Player's Name: " .. playerName end, options = playerNameMenuOptions,},
 		},
 	},
@@ -2352,7 +2478,7 @@ menu_data = {
 		items = {
 			{action = "selectSetting", setting = "manual", display = "Manual", description = "Manual mode allows you to create a savepoint any time you want, record a ghost starting from that point, and practice against that ghost. Useful for practicing or experimenting with individual tricks. Manual ghosts cannot currently be saved to file."},
 			{action = "selectSetting", setting = "segment", display = "Segment", description = "Segment mode allows you to practice individual levels or homeworld movement between levels. When entering or exiting a level, a comparison ghost will automatically start. New savestates are created automatically as you complete your route."},
-			{action = "function", setting = "run", display = "Full Run (Not implemented)", description = "Not yet implemented. You can still do a full run in segment mode and segment ghosts will play automatically as you move between levels.", selectFunction = function(self) showError("Full run mode is not yet implemented.") end},
+			{action = "selectSetting", setting = "run", display = "Full Run", description = "Full Run will create a ghost for an entire speedrun. Segment ghosts may optionally be shown."},
 		},
 		openFunction = function(self)
 			self.originalValue = getGlobalVariable(self.targetVariable)
@@ -2360,10 +2486,6 @@ menu_data = {
 		closeFunction = function(self)
 			if self.originalValue ~= getGlobalVariable(self.targetVariable) then
 				tryRunGlobalFunction("clearAllRecordingData")
-			end
-			if recordingMode == "run" then
-				recordingMode = "segment"
-				showError("Full run mode is not yet implemented")
 			end
 		end,
 	},
@@ -2553,15 +2675,15 @@ menu_data = {
 			spyroSkin.applyPalette((self.items[menu_cursor] or {}).palette)
 		end,
 	},
-	["segment mode settings"] = {
+	["ghost settings"] = {
 		menuType = "normal",
-		title = "Segment Mode Settings",
+		title = "Ghost Settings",
 		description = nil,
 		reservedDescriptionLines = 4,
 		items = {
-			{action = "changeMenu", target = "comparison settings", display = "Choose Which Ghost to Compare to", description = "Choose a ghost to race against. Time deltas against this ghost will show at the end of each segment and when rescuing dragons.",},
-			{action = "changeMenu", target = "collection settings list", display = "Choose Additonal Ghosts to Show", description = "Choose which ghosts will be displayed from each collection. These ghosts are shown in addition to the ghost you are comparing to. Each collection is a subfolder in the script's \"Ghosts\" folder.",},
-			{action = "function", display = "Export Segment Golds", description = "Create a new collection and copy your fastest ghost from each segment to it.",
+			{action = "changeMenu", target = "segment ghost settings", description = "Change which segment ghosts are shown and which one to compare times against.",},
+			{action = "changeMenu", target = "run ghost settings", description = "Change which full run ghosts are shown and which one to compare times against.",},
+			{action = "function", display = "Export Fastest Times", description = "Create a new collection and copy your fastest ghost from each segment to it. Copies your fastest full game runs, too.",
 				selectFunction = function(self)
 					local collectionFolder = segment_exportGolds()
 					populateFileList()
@@ -2571,6 +2693,38 @@ menu_data = {
 			{action = "onOffSetting", targetVariable = "segment_showSubSegmentGhosts", prettyName = "Show Sub-Segment Ghosts", description = "When you rescue a dragon, all visible ghosts will jump forward or backward to rescue it at the same time. This does not change the time deltas that are shown.",},
 			{action = "onOffSetting", targetVariable = "segment_preloadAllGhosts", prettyName = "Preload All Ghosts", description = "Load the data for all segment ghosts when the script starts. May prevent a noticable stutter when entering a new segment at the cost of increased memory usage.",},
 			{action = "onOffSetting", targetVariable = "segment_autoSaveGhosts", prettyName = "Auto-save Ghosts", description = "Automatically save ghosts when ending a segment. This is not recommended because the script cannot tell if a segment was completed successfully. This may be useful for creating segment recordings from a TAS.",},
+		},
+	},
+	["segment ghost settings"] = {
+		menuType = "normal",
+		title = "Segment Ghost Settings",
+		description = nil,
+		reservedDescriptionLines = 4,
+		items = {
+			{action = "changeMenu", target = "choose from list", updateDisplay = function(self) self.display = "Comparison Collection: " .. segment_comparison_collection end, description = "Choose the collection you want to compare to. Each collection is a subfolder in the script's \"Ghosts\" folder. Ghosts you create will be saved to a collection using your name.", options = {title = "Choose a Collection", targetVariable = "segment_comparison_collection", choices = "collections",},},
+			{action = "stringSetting", targetVariable = "segment_comparison_target", prettyName = "Compare To", description = "Select which ghost in the chosen collection will be compared to.", options = {"lengthSort", "timestampSort",}, displayLUT = {["lengthSort"] = "Fastest", ["timestampSort"] = "Most Recent",},},
+			{action = "onOffSetting", targetVariable = "segment_comparison_useColor", prettyName = "Use Comparison Color", description = "Use a seperate color for the ghost that is being compared to, instead of the default color for its collection.",},
+			{action = "changeMenu", target = "color select", options = {colorTarget = "segment_comparison_color",}, display = "Comparison Color", description = "Change the colors for the comparison ghost (if the setting above is on).",},
+			{action = "changeMenu", target = "collection settings list", display = "Choose Additonal Ghosts to Show", description = "Choose which ghosts will be displayed from each collection. These ghosts are shown in addition to the ghost you are comparing to. Each collection is a subfolder in the script's \"Ghosts\" folder.",},
+		},
+	},
+	["run ghost settings"] = {
+		menuType = "normal",
+		title = "Full Run Ghost Settings",
+		description = nil,
+		reservedDescriptionLines = 4,
+		items = {
+			{action = "changeMenu", target = "choose from list", updateDisplay = function(self) self.display = "Collection: " .. run_collection end, description = "Choose the collection for the full game ghosts. Currently, it's only possible to show one collection at a time.", options = {title = "Choose a Collection", targetVariable = "run_collection", choices = "collections",},},
+			{action = "stringSetting", targetVariable = "run_comparison_target", prettyName = "Compare To", description = "Select which ghost will be compared to. This ghost will always be shown, even if the settings below are set to 0.", options = {"lengthSort", "timestampSort",}, displayLUT = {["lengthSort"] = "Fastest", ["timestampSort"] = "Most Recent",},},
+			{action = "numberSetting", targetVariable = "run_loadXFastest", prettyName = "Show Fastest", description = "Show the x fastest ghosts.", minValue = 0,},
+			{action = "numberSetting", targetVariable = "run_loadXRecent", prettyName = "Show Recent", description = "Show the x most recently created ghosts.", minValue = 0,},
+			{action = "changeMenu", target = "color select", options = {colorTarget = "run_ghostColor",}, display = "Change Ghost Color", description = "Change the colors for these ghosts.",},
+			{action = "onOffSetting", targetVariable = "run_comparison_useColor", prettyName = "Different Comparison Color", description = "Decide whether the ghost you're comparing to should be a different color.",},
+			{action = "changeMenu", target = "color select", options = {colorTarget = "run_comparison_color",}, display = "Change Comparison Color", description = "Change the colors for the ghost you're comparing to, only if the setting above is on.",},
+			{action = "onOffSetting", targetVariable = "run_showRankPlace", prettyName = "Show Current Rank", description = "Show your rank against the ghost(s) you're racing against. Press Square for more info.", squareSelect = menu_rankingInfo,},
+			{action = "onOffSetting", targetVariable = "run_showRankList", prettyName = "Show Complete Ranking", description = "Show the rankings of all the ghosts in a list. Press Square for more info.", squareSelect = menu_rankingInfo,},
+			{action = "onOffSetting", targetVariable = "run_showRankNames", prettyName = "Show Labels for Ghosts", description = "Show a letter above each ghost according to their final placement among the ghosts.",},
+			{action = "onOffSetting", targetVariable = "run_showSegmentGhosts", prettyName = "Show Segment Ghosts", description = "Show segment ghosts during a full run.",},
 		},
 	},
 	["comparison settings"] = {
@@ -3497,14 +3651,60 @@ function draw_updateSegment()
 		end
 		
 		-- Print input to overwrite segment data, if new time is faster. If current route is 120%, also check that we got all the gems.
-		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) then
+		if segment_readyToUpdate and ((segment_lastRecording_gemCount == segment_lastRecording_gemTotal or not segment_lastRecording.enforceGemRequirement) or segment_lastRecording.flightLevel) and not run_readyToUpdate then
 			local updateButton = getInputForAction("updateSegment")
+			if updateButton == "" then updateButton = getInputForAction("updateSegment_run") end
 			if updateButton ~= "" then
 				gui.drawText(x, y+3*dy, "Save new ghost with " .. updateButton, "white", "black")
 			end
 		end
 	end
 	
+end
+
+function draw_endOfRun()
+	if run_lastRecording == nil then
+		menu_showEndOfRun = false
+		return
+	end
+	
+	--Position of the GUI
+	local x = border_right - 45
+	local y = 100
+	local dy = 20--vertical spacing between lines
+	
+	-- Calculate and print run time
+	local endTime = getFormattedTime(run_lastRecording.length)
+	
+	if run_finalRank and run_finalRank > 0 then
+		gui.drawText(x, y+1*dy, "Final Rank: " .. ordinal(run_finalRank), "white", "black", 12, nil, nil, "right")
+	end
+	
+	gui.drawText(x, y+2*dy, "Final Time: " .. endTime, "white", "black", 12, nil, nil, "right")
+
+	-- Calculate and print run delta
+	if menu_runUpdate_delta ~= nil then
+
+		local percent = ""
+		if showDeltaPercent then
+			percent = menu_runUpdate_delta / (run_lastRecording.length - menu_runUpdate_delta)
+			local sign = percent >= 0 and "+" or ""
+			percent = "   " .. string.format("%s%.0d%%", sign, percent * 100)
+		end
+
+		local s, c = getFormattedTime(menu_runUpdate_delta, true, menu_runUpdate_forceFrames)--This should not be calculated here. 
+		s = "Delta: " .. s .. percent
+		
+		gui.drawText(x, y+3*dy, s, c, "black", 12, nil, nil, "right")
+	end
+	
+	-- Print input to overwrite run data.
+	if run_readyToUpdate then
+		local updateButton = getInputForAction("saveRun")
+		if updateButton ~= "" then
+			gui.drawText(x, y+4*dy, "Save new ghost with " .. updateButton, "white", "black", 12, nil, nil, "right")
+		end
+	end
 end
 
 function drawStats()
@@ -3622,7 +3822,19 @@ do
 	quickDelta_text = ""
 end
 
-function getFormattedTime(frames, forceSign, forceFrames)
+function getFormattedTime(frames, forceSign, forceFrames, useLetters)
+	
+	local hourMarker = ":"
+	local minuteMarker = ":"
+	local secondMarker = ""
+	local frameMarker = ""
+	if useLetters then
+		hourMarker = "h"
+		minuteMarker = "m"
+		secondMarker = "s"
+		frameMarker = "f"
+	end
+
 	local fps = framerate
 	
 	local plus = forceSign and "+" or ""
@@ -3634,7 +3846,8 @@ function getFormattedTime(frames, forceSign, forceFrames)
 		color = "green"
 	end
 	
-	local minutes = math.floor((frames * sign) / (fps * 60))
+	local hours = math.floor((frames * sign) / (fps * 3600))
+	local minutes = math.floor((frames * sign) / (fps * 60)) - hours * 60
 	local seconds = math.floor((frames * sign) / fps) % 60
 	
 	local subSecond = (frames * sign) % fps
@@ -3642,16 +3855,21 @@ function getFormattedTime(frames, forceSign, forceFrames)
 	local subSecondType =  timeFormat_frames
 	if forceFrames ~= nil then subSecondType = forceFrames end
 	if subSecondType then
-		subSecond = "'" .. string.format("%02d", subSecond)
+		if not useLetters then secondMarker = "'" end
+		subSecond = secondMarker .. string.format("%02d", subSecond) .. frameMarker
 	else
-		subSecond = "." .. string.format("%02d", subSecond / fps * 100)
+		subSecond = "." .. string.format("%02d", subSecond / fps * 100) .. secondMarker
 	end
 	
 	local output = (sign == 1) and plus or "-"
-	if minutes > 0 then
-		output = output .. tostring(minutes) .. ":" .. string.format("%02d", seconds) .. subSecond
+	if hours > 0 then
+		output = output .. tostring(hours) .. hourMarker .. string.format("%02d", minutes) .. minuteMarker .. string.format("%02d", seconds) .. subSecond
 	else
-		output = output .. tostring(seconds) .. subSecond
+		if minutes > 0 then
+			output = output .. tostring(minutes) .. minuteMarker .. string.format("%02d", seconds) .. subSecond
+		else
+			output = output .. tostring(seconds) .. subSecond
+		end
 	end
 	
 	return output, color
@@ -3673,12 +3891,16 @@ end
 
 do -- Variables used by all recording modes
 	saveStateRequested = false -- This allows the onLoadSavestate() event needs to know whether a savestate was loaded by the player or by this script.
+	
+	allGhosts = {}
+	rebuildAllGhosts = false
 end
 
 function clearAllRecordingData()
 	tryRunGlobalFunction("manual_clearData")
 	tryRunGlobalFunction("segment_clearData")
 	tryRunGlobalFunction("run_clearData")
+	allGhosts = {}
 end
 
 -------------------------
@@ -3696,6 +3918,7 @@ function manual_clearData()
 	
 	manual_recording = nil
 	manual_ghost = nil
+	rebuildAllGhosts = true
 	manual_stateExists = false
 end
 
@@ -3717,6 +3940,7 @@ do -- Segment Mode Settings and Variables
 	
 	segment_recording = nil
 	segment_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
+	segment_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
 	segment_ghostSettings = {}
 	segment_comparison_ghost = nil -- The ghost we're currently comparing against.
 	segment_comparison_collection = "Unknown"
@@ -3730,11 +3954,7 @@ do -- Segment Mode Settings and Variables
 	segment_readyToUpdate = false
 	
 	segment_autoSaveGhosts = false -- A setting to automatically save all ghosts without waiting for the player to confirm they should be saved. Only intended for use cases such as creating a ghost from a tas.
-	
-	
-	segment_loadedGhostCache = {} -- A list of ghosts and their data. When reloading a segment, the script will check here first before loading a ghost from file. Ghosts that are no longer being used will be dropped from this cache unless segment_preloadAllGhosts is set.
-	segment_loadedGhostCache_age = 0
-	
+		
 	segment_preloadAllGhosts = false -- Load all available ghosts into segment_loadedGhostCach when the script first starts.
 	
 	segment_levelStartArmed = false
@@ -3751,6 +3971,7 @@ function segment_clearData()
 	
 	segment_recording = nil
 	segment_ghosts = {}
+	rebuildAllGhosts = true
 	segment_comparison_ghost = nil
 	segment_lastRecording = nil
 	segment_readyToUpdate = false
@@ -3762,120 +3983,79 @@ end
 
 function segment_loadGhosts()
 	segment_ghosts = {}
+	rebuildAllGhosts = true
+	segment_ghostsSet = {}
 	segment_comparison_ghost = nil
-	segment_loadedGhostCache_age = segment_loadedGhostCache_age + 1
 	
-	local function loadUsingCache(meta, collection)
-	
-		--Make sure this thing is real
-		if type(meta) ~= "table" then return nil, false end
-		
-		if segment_loadedGhostCache[meta.uid] then
-			-- Condition: This ghost is already loaded and doesn't need to be read from file again.
-			local alreadyLoaded = not (segment_loadedGhostCache[meta.uid].age < segment_loadedGhostCache_age)
-			segment_loadedGhostCache[meta.uid].age = segment_loadedGhostCache_age
-			local ghost = segment_loadedGhostCache[meta.uid].data
+	if recordingMode == "segment" or run_showSegmentGhosts then
+		-- For each collection, load some ghosts from it (maybe).
+		for collectionName in pairs(collections) do
+					
+			local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
 			
-			-- It is possible for the same ghost to exist in multiple collections. If the ghost is loaded from multiple collections at the same time, it will prefer to represent a collection that is not the default collection (playerName). For example: if the player exports their golds to a new collection and then changes the color for the gold collection, that will always be the color that is used, even though those ghosts still exist in the default collection.
-			if not alreadyLoaded or collection ~= playerName then
-				ghost.collection = collection
-			end
-			ghost.color = (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
-			return ghost, alreadyLoaded
-		else
-			-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
-			local ghost = loadGhostFromMeta(meta)
-			if Ghost.isGhost(ghost) then
-				segment_loadedGhostCache[meta.uid] = {age = segment_loadedGhostCache_age, data = ghost}
-				ghost.collection = collection
-				ghost.color = (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
-				return ghost, false
-			else
-				showError("Something went wrong when loading ghost.")
-				return nil, false
-			end
-		end
-	end
-	
-	-- For each collection, load some ghosts from it (maybe).
-	for collectionName in pairs(collections) do
-				
-		local collection = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
-		
-		if type(collection) == "table" then
-		
-			if (segment_ghostSettings[collectionName] or {}).showAll then
-				-- Condition: The option to show all ghosts has
-				-- been set for this collection.
-				
-				for i = 1, #(collection.lengthSort or {}) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
-					if Ghost.isGhost(ghost) and not alreadyLoaded then
-						table.insert(segment_ghosts, ghost)
+			if type(collection) == "table" then
+			
+				if (segment_ghostSettings[collectionName] or {}).showAll then
+					-- Condition: The option to show all ghosts has
+					-- been set for this collection.
+					
+					for i = 1, #(collection.lengthSort or {}) do
+						local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
+						if Ghost.isGhost(ghost) and not alreadyLoaded then
+							table.insert(segment_ghosts, ghost)
+							segment_ghostsSet[ghost.uid] = true
+						end
 					end
-				end
-				
-			else
-				-- Condition: We're not showing all ghosts, so
-				-- check which ones should be shown.
-				
-				-- Load the fastest ghosts from this collection
-				local loadXFastest = (segment_ghostSettings[collectionName] or {}).showFastest or 0
-				for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.lengthSort[i], collectionName)
-					if Ghost.isGhost(ghost) and not alreadyLoaded then
-						table.insert(segment_ghosts, ghost)
+					
+				else
+					-- Condition: We're not showing all ghosts, so
+					-- check which ones should be shown.
+					
+					-- Load the fastest ghosts from this collection
+					local loadXFastest = (segment_ghostSettings[collectionName] or {}).showFastest or 0
+					for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
+						local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName)
+						if Ghost.isGhost(ghost) and not alreadyLoaded then
+							table.insert(segment_ghosts, ghost)
+							segment_ghostsSet[ghost.uid] = true
+						end
 					end
-				end
-				
-				-- Load the most recent ghosts from this collection
-				local loadXRecent = (segment_ghostSettings[collectionName] or {}).showRecent or 0
-				for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
-					local ghost, alreadyLoaded = loadUsingCache(collection.timestampSort[i], collectionName)
-					if Ghost.isGhost(ghost) and not alreadyLoaded then
-						table.insert(segment_ghosts, ghost)
+					
+					-- Load the most recent ghosts from this collection
+					local loadXRecent = (segment_ghostSettings[collectionName] or {}).showRecent or 0
+					for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
+						local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName)
+						if Ghost.isGhost(ghost) and not alreadyLoaded then
+							table.insert(segment_ghosts, ghost)
+							segment_ghostsSet[ghost.uid] = true
+						end
 					end
 				end
 			end
 		end
-	end
-	
-	-- Determine which ghost to compare to, loading it if it is not already loaded.	
-	local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
+		
+		-- Determine which ghost to compare to, loading it if it is not already loaded.	
+		local comparison_target = getGlobalVariable({"ghostData", "segment", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, segment_comparison_target, 1})
 
-	local ghost, alreadyLoaded = loadUsingCache(comparison_target, segment_comparison_collection)
-	if Ghost.isGhost(ghost) then
-		segment_comparison_ghost = ghost
-		if not alreadyLoaded then
-			table.insert(segment_ghosts, ghost)
-		else
-			-- Move the comparison ghost to the end of the
-			-- array, so it will get rendered last (and on
-			-- top of all the others).
-			for i, v in ipairs(segment_ghosts) do
-				if v == ghost then
-					table.remove(segment_ghosts, i)
-					table.insert(segment_ghosts, ghost)
-				end
+		local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, segment_comparison_collection)
+		if Ghost.isGhost(ghost) then
+			segment_comparison_ghost = ghost
+			if not alreadyLoaded then
+				table.insert(segment_ghosts, ghost)
+				segment_ghostsSet[ghost.uid] = true
 			end
-		end
-		if segment_comparison_useColor then
-			ghost.color = segment_comparison_color or 0xFFFFFFFF
+			if segment_comparison_useColor then
+				ghost.color = segment_comparison_color or 0xFFFFFFFF
+			end
 		end
 	end
 	
-	-- Unload any ghosts (from segment_loadedGhostCache) that are no longer being used
-	if not segment_preloadAllGhosts then
-		for k, v in pairs(segment_loadedGhostCache) do
-			if v.age < segment_loadedGhostCache_age then
-				segment_loadedGhostCache[k] = nil
-			end
-		end
-	end
+	-- Force unused ghosts to be removed from the cache
+	cleanCachedGhosts = true
 end
 
 function segment_start()
-	if recordingMode ~= "segment" then return end
+	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
 	
 	bonkCounter = 0
 	
@@ -3883,7 +4063,7 @@ function segment_start()
 	
 	segment_dragonSplitArmed = false
 	
-	segment_recording = Ghost.startNewRecording()
+	segment_recording = Ghost.startNewRecording("segment")
 
 	for i, ghost in ipairs(segment_ghosts) do
 		if Ghost.isGhost(ghost) then
@@ -3893,7 +4073,14 @@ function segment_start()
 end
 
 function segment_halt()
-	if recordingMode ~= "segment" then return end
+	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
+	
+	
+	-- Handle full runs
+	if recordingMode == "run" and run_recording ~= nil then
+		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
+	end
+	if recordingMode == "run" and not run_showSegmentGhosts then return end
 	
 	segment_dragonSplitArmed = false
 	
@@ -3948,11 +4135,18 @@ function segment_restart(targetSegment)
 		segment_recording = nil
 		segment_lastRecording = nil
 		segment_readyToUpdate = false
-		if recordingMode == "segment" then segment_levelStartArmed = true end
+		if recordingMode == "segment" or recordingMode == "run" then segment_levelStartArmed = true end
+		run_recording = nil
+		run_lastRecording = nil
+		run_readyToUpdate = false
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then run_runStartArmed = true end
 		spyroControl = 0
 		
 		--try to load ghost
-		if recordingMode == "segment" then segment_loadGhosts() end
+		if recordingMode == "segment" or recordingMode == "run" then segment_loadGhosts() end
+		
+		--try to load full run ghost
+		if recordingMode == "run" and currentSegment[2] == 10 and currentSegment[3] == "Entry" then run_loadGhosts() end
 		
 		--load savestate
 		saveStateRequested = true
@@ -4039,6 +4233,264 @@ function segment_exportGolds()
 	segment_ghostSettings[collectionFolder].color = 0xFFFFFF00
 	segment_saveCollectionSettings(collectionFolder)
 	return collectionFolder
+end
+
+-------------------------
+-- Full Run Mode
+-------------------------
+
+if true then -- Full Run Mode Settings and Variables
+	
+	run_recording = nil
+	run_ghosts = {} -- A list of all ghosts that are currently being shown, including the one we're comparing against.
+	run_ghostsSet = {} -- Same as above, but as an unordered set storing only the uids
+	
+	run_collection = "Unknown"
+	run_loadXFastest = 0
+	run_loadXRecent = 0
+	run_ghostColor = 0xFFFFFFFF
+	
+	run_comparison_ghost = nil -- The ghost we're currently comparing against.
+	run_comparison_target = "lengthSort"
+	run_comparison_useColor = false -- No setting for this currently exists
+	run_comparison_color = 0xFFFFFFFF
+	
+	run_ranking = {}
+	run_rankingNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",}
+	run_showRanking = false
+	run_rankingPlace = 0
+	
+	run_showRankList = false
+	run_showRankNames = false
+	run_showRankPlace = true
+	
+	run_lastRecording = nil -- Keeps a copy of the most recently completed recording (from run_recording) while we wait to see if the player will save it.
+	run_readyToUpdate = false
+	
+	run_runStartArmed = false
+	
+	run_showSegmentGhosts = true
+end
+
+function run_clearData()
+	run_showRanking = false
+	
+	run_recording = nil
+	run_ghosts = {}
+	rebuildAllGhosts = true
+	run_ghostsSet = {}
+	
+	run_clearRanking()
+	
+	run_lastRecording = nil
+	run_readyToUpdate = false
+	run_runStartArmed = false
+	
+	run_rankingPlace = 0
+end
+
+function run_clearRanking()
+
+	run_ranking = {}
+	run_showRanking = false
+end
+
+function run_loadGhosts()
+	run_ghosts = {}
+	rebuildAllGhosts = true
+	run_ghostsSet = {}
+	run_comparison_ghost = nil
+	
+	run_clearRanking()
+	
+	local collectionName = run_collection
+	local loadXFastest = run_loadXFastest
+	local loadXRecent = run_loadXRecent
+	local ghostColor = run_ghostColor
+	
+	local run_comparison_target = run_comparison_target
+	
+	-- Load extra ghosts (additional to the comparison) from the target collection 
+	local collection = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), collectionName})
+	
+	if type(collection) == "table" then
+		-- Load the fastest ghosts from this collection
+		for i = 1, math.min(#(collection.lengthSort or {}), loadXFastest) do
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.lengthSort[i], collectionName, ghostColor)
+			if Ghost.isGhost(ghost) and not alreadyLoaded then
+				table.insert(run_ghosts, ghost)
+				run_ghostsSet[ghost.uid] = true
+			end
+		end
+		
+		-- Load the most recent ghosts from this collection
+		for i = 1, math.min(#(collection.timestampSort or {}), loadXRecent) do
+			local ghost, alreadyLoaded = loadRecordingUsingCache(collection.timestampSort[i], collectionName, ghostColor)
+			if Ghost.isGhost(ghost) and not alreadyLoaded then
+				table.insert(run_ghosts, ghost)
+				run_ghostsSet[ghost.uid] = true
+			end
+		end
+	end
+	
+	-- Determine which ghost to compare to, loading it if it is not already loaded.	
+	local comparison_target = getGlobalVariable({"ghostData", "run", getCategoryHandle(currentSegment), segmentToString(currentSegment), segment_comparison_collection, run_comparison_target, 1})
+
+	local ghost, alreadyLoaded = loadRecordingUsingCache(comparison_target, collectionName, ghostColor)
+	if Ghost.isGhost(ghost) then
+		run_comparison_ghost = ghost
+		if not alreadyLoaded then
+			table.insert(run_ghosts, ghost)
+			run_ghostsSet[ghost.uid] = true
+		end
+		if run_comparison_useColor then
+			ghost.color = run_comparison_color or 0xFFFFFFFF
+		end
+	end
+	
+	-- Establish ranking names and starting positions
+	run_ranking = {}
+	for i, v in ipairs(run_ghosts) do
+		table.insert(run_ranking, v)
+	end
+	table.sort(run_ranking, function(a, b)
+		return a.length * framerate / a.framerate < b.length * framerate / b.framerate
+	end)
+	for i, v in ipairs(run_ranking) do
+		v.rankingName = run_getRankingName(i)
+		v.rankingLastFrame = 0
+	end
+	
+	-- Force unused ghosts to be removed from the cache
+	cleanCachedGhosts = true
+end
+
+function run_getRankingName(i)
+	if run_rankingNames[i] then return run_rankingNames[i] end
+	return tostring(i - #run_rankingNames)
+end
+
+function run_updateRankings()
+	if run_ranking == nil or #run_ranking == 0 then return end
+	
+	local overtakes = {}
+	
+	for i, v in ipairs(run_ranking) do
+		local oldTime = v.rankingLastFrame
+		local newTime = emu.framecount() - v.zeroFrame
+		for k, t in pairs(v.segmentSplits) do
+			if t > oldTime and t <= newTime then
+				--print("split: " .. tostring(v.rankingName))
+				for ii, vv in ipairs(run_ranking) do
+					if ii >= i then break end
+					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
+						table.insert(overtakes, {v, vv})
+					end
+				end
+				-- Check for overtaking the player
+				if gameState ~= 12 and v ~= run_recording and k == getSegmentHandle() then
+					table.insert(overtakes, {v, run_recording})
+				end
+				if v == run_recording then
+					for ii, vv in ipairs(run_ranking) do
+						if vv.segmentSplits[k] and vv.segmentSplits[k] < t then
+							table.insert(overtakes, {vv, v})
+						end
+					end
+				end
+				break
+			end
+		end
+		v.rankingLastFrame = newTime
+	end
+	
+	--[[ DEBUG: show overtakes in console as they happen
+	if #overtakes > 0 then
+		print("Overtake")
+		for i, v in ipairs(overtakes) do
+			print(v[1].rankingName .. " -> " .. v[2].rankingName)
+		
+		end
+	end
+	--]]
+	for i, v in ipairs(overtakes) do
+		local tempGhost = nil
+		for ii, vv in ipairs(run_ranking) do
+			if tempGhost ~= nil then
+				run_ranking[ii] = tempGhost
+				tempGhost = vv
+				if tempGhost == v[1] then break end
+			end
+			if vv == v[1] and tempGhost == nil then break end
+			if vv == v[2] then
+				tempGhost = vv
+				run_ranking[ii] = v[1]
+			end
+		end
+	end
+end
+
+function run_start()
+	if recordingMode ~= "run" then return end
+	
+	showDebug("Run Start")
+	
+	run_recording = Ghost.startNewRecording("run")
+	
+	run_rankingPlace = 0
+	
+	table.insert(run_ranking, 1, run_recording)
+	run_recording.rankingName = "Player"
+	if #run_ranking > 1 then
+		run_showRanking = true
+	end
+
+	for i, ghost in ipairs(run_ghosts) do
+		if Ghost.isGhost(ghost) then
+			ghost:startPlayback()
+		end
+	end
+end
+
+function run_halt()
+	if recordingMode ~= "run" then return end
+	
+	showDebug("Run End")
+	
+	run_showRanking = false
+	
+	run_finalRank = 0
+	
+	if Ghost.isGhost(run_recording) then
+	
+		if run_rankingPlace > 0 then
+			run_finalRank = 1
+			for i, v in ipairs(run_ranking) do
+				if v ~= run_recording and run_recording.length >= v.length * framerate / v.framerate then
+					run_finalRank = run_finalRank + 1
+				end
+			end
+		end
+	
+		run_recording:endRecording()
+		
+		menu_showEndOfRun = true
+		run_readyToUpdate = true
+		run_lastRecording = run_recording
+		run_recording = nil
+
+		if Ghost.isGhost(run_comparison_ghost) then
+			if run_comparison_ghost.framerate == framerate then
+					menu_runUpdate_delta = run_lastRecording.length - run_comparison_ghost.length
+					menu_runUpdate_forceFrames = nil
+				else
+					menu_runUpdate_delta = run_lastRecording.length - (run_comparison_ghost.length * framerate / run_comparison_ghost.framerate)
+					menu_runUpdate_forceFrames = false
+			end
+		else
+			menu_runUpdate_delta = nil
+		end
+	end
 end
 
 -------------------------
@@ -4145,7 +4597,7 @@ function populateFileList()
 			
 			local line = f:read()
 			
-			if line == "version: 2" then 
+			if line == "version: 2" or line == "version: 3" then 
 				while keepLooping do
 					line = f:read()
 					if line == nil then
@@ -4211,10 +4663,10 @@ function populateFileList()
 		end
 		
 		-- Load the ghost into the cache if the segment_preloadAllGhosts setting is set.
-		if ghostIsValid and segment_preloadAllGhosts and segment_loadedGhostCache[ghostMeta.uid] == nil then
+		if ghostIsValid and segment_preloadAllGhosts and loadedGhostCache[ghostMeta.uid] == nil then
 			local newCachedData = {age = 0, data = loadGhostFromMeta(ghostMeta),}
 			if newCachedData.data then
-				segment_loadedGhostCache[ghostMeta.uid] = newCachedData
+				loadedGhostCache[ghostMeta.uid] = newCachedData
 			end
 		end
 		
@@ -4279,6 +4731,23 @@ end
 -- Ghost Class
 -------------------------
 
+do
+	loadedGhostCache = {} -- A list of ghosts and their data. When reloading a segment, the script will check here first before loading a ghost from file. Ghosts that are no longer being used will be dropped from this cache unless segment_preloadAllGhosts is set.
+	ghostQualityOptions = {
+		high = {
+			maxTotalError = 100,
+			maxDirError = 0.15,
+			compression = "none",
+		},
+		low = {
+			maxTotalError = 300,
+			maxDirError = 0.35,
+			compression = "diff",
+			angleFactor = 50,
+		},
+	}
+end
+
 Ghost = {
 	isPlaying = false,
 	isRecording = false,
@@ -4300,6 +4769,7 @@ Ghost = {
 	dateTime = "unknown",
 	timestamp = 0,
 	uid = "unknown",
+	quality = ghostQualityOptions.high,
 	counter = 1,
 	--keyframeHit = 0 --DEBUG to determine how many frames are being thrown away (keyframe / total frames)
 	--keyframeTotal = 0
@@ -4318,21 +4788,28 @@ function Ghost.isGhost(o)
 	return false
 end
 
-function Ghost.startNewRecording()
+function Ghost.startNewRecording(mode)
 	local newRecording = Ghost:new()
 	
 	newRecording.keyframes = {}
 	newRecording.dragonSplits = {}
+	newRecording.segmentSplits = {} -- used during full game runs to show when different segments exit
 	newRecording.isRecording = true
 	newRecording.zeroFrame = emu.framecount() - 1
 	newRecording.animation = 1
 	newRecording.playerName = playerName
 	newRecording.framerate = framerate
-	newRecording.mode = recordingMode
+	newRecording.mode = mode
 	newRecording.category = getCategoryHandle(getCurrentSegment())
 	newRecording.segment = getCurrentSegment()
 	newRecording.datetime = os.date("%Y-%m-%d %H.%M.%S")
 	newRecording.timestamp = os.time()
+	
+	if mode == "run" then
+		newRecording.quality = ghostQualityOptions.low
+	else
+		newRecording.quality = ghostQualityOptions.high
+	end
 	
 	newRecording.state1 = {}
 	newRecording.state2 = {}
@@ -4433,14 +4910,14 @@ function Ghost:updateRecording()
 		local totalError = math.sqrt(xError * xError + yError * yError + zError * zError)
 		--gui.drawText(100, 100, tostring(totalError), "white", "black")
 				
-		if totalError > 100 then
+		if totalError > self.quality.maxTotalError then
 			newKeyframe = true
 		end
 		
 		local dirError = math.abs(spyroDirection - (self.keyframes[targetKeyframe - 1][3] + dirSpeed * deltaTime))
 		if dirError > _pi then dirError = _tau - dirError end
 		
-		if dirError > 0.15 then
+		if dirError > self.quality.maxDirError then
 			newKeyframe = true
 		end
 		
@@ -4661,12 +5138,15 @@ end
 
 function saveRecordingToFile(path, ghost)
 
+	local compression = ghost.quality.compression
+	local fileVersion = (compression == "diff") and 3 or 2
+
 	local f = assert(io.open(path, "w"))
 	
 	-----
 	-- Header
 	-----
-	f:write("version: 2", "\n")
+	f:write("version: ", tostring(fileVersion), "\n")
 	
 	f:write("uid: ", ghost.uid, "\n")
 	f:write("gameName: ", ghost.gameName, "\n")
@@ -4678,6 +5158,9 @@ function saveRecordingToFile(path, ghost)
 	f:write("datetime: ", ghost.datetime, "\n")
 	f:write("timestamp: ", tostring(ghost.timestamp), "\n")
 	f:write("framerate: ", tostring(ghost.framerate), "\n")
+	f:write("compression: ", compression, "\n")
+	if compression == "diff" then f:write("angleFactor: ", ghost.quality.angleFactor, "\n") end
+	f:write("segmentSplits: ", JSON:encode(ghost.segmentSplits), "\n")
 	
 	-----
 	-- Dragon Splits
@@ -4692,26 +5175,50 @@ function saveRecordingToFile(path, ghost)
 	-- Keyframes
 	-----
 	f:write("Keyframes\n")
-	--One line is written per keyframe using the following format:
-	--frameNumber, spyroX, spyroY, spyroZ, spyroDirection [,segment:12] [,dragon]
-	for index,data in ipairs(ghost.keyframes) do
-		--f:write(tostring(index), "\n")
-		f:write(tostring(data[1]))
-		f:write(", ", tostring(data[2][1]))
-		f:write(", ", tostring(data[2][2]))
-		f:write(", ", tostring(data[2][3]))
-		f:write(", ", string.format("%.3f", data[3]))
-		if data["segment"] ~= nil then
-			f:write(", segment: ", tostring(data["segment"]))
+	
+	if compression == "diff" then
+		--One line is written per keyframe using the following format:
+		--frameNumber,spyroX,spyroY,spyroZ,spyroDirection[,s:12][,a:1]
+		local lastData = {0, {0, 0, 0,},}
+		local lastAngle = 0
+		for index,data in ipairs(ghost.keyframes) do
+			--f:write(tostring(index), "\n")
+			f:write(tostring(data[1] - lastData[1]))
+			f:write(",", tostring(data[2][1] - lastData[2][1]))
+			f:write(",", tostring(data[2][2] - lastData[2][2]))
+			f:write(",", tostring(data[2][3] - lastData[2][3]))
+			local angle = math.floor(data[3] * ghost.quality.angleFactor + 0.5)
+			f:write(",", tostring(angle - lastAngle))
+			lastAngle = angle
+			if data["segment"] ~= nil then
+				f:write(",s:", tostring(data["segment"]))
+			end
+			if data["animation"] ~= nil then
+				f:write(",a:", tostring(data["animation"]))
+			end
+			f:write("\n")
+			lastData = data
 		end
-		if data["animation"] ~= nil then
-			f:write(", animation: ", tostring(data["animation"]))
+	else
+		--One line is written per keyframe using the following format:
+		--frameNumber, spyroX, spyroY, spyroZ, spyroDirection [,segment:12] [,dragon]
+		for index,data in ipairs(ghost.keyframes) do
+			--f:write(tostring(index), "\n")
+			f:write(tostring(data[1]))
+			f:write(", ", tostring(data[2][1]))
+			f:write(", ", tostring(data[2][2]))
+			f:write(", ", tostring(data[2][3]))
+			f:write(", ", string.format("%.3f", data[3]))
+			if data["segment"] ~= nil then
+				f:write(", segment: ", tostring(data["segment"]))
+			end
+			if data["animation"] ~= nil then
+				f:write(", animation: ", tostring(data["animation"]))
+			end
+			f:write("\n")
 		end
-		if data["dragon"] ~= nil then
-			f:write(", dragon: ", tostring(data["dragon"]))--not used anymore. Dragon spilts are saved in a different part of the file
-		end
-		f:write("\n")
 	end
+	
 	f:write("End of Keyframes\n")
 	
 	f:close()
@@ -4723,6 +5230,7 @@ function loadRecordingFromFile(path)
 	local newGhost = Ghost:new()
 	local newKeyframes = {}
 	local newDragonSplits = {}
+	local newSegmentSplits = {}
 	
 	local line = nil
 	local items = nil
@@ -4773,29 +5281,73 @@ function loadRecordingFromFile(path)
 		elseif string.starts(line, "uid:") then
 			local s = string.trim(string.sub(line, string.len("uid:") + 1))
 			if (s or "") ~= "" then newGhost.uid = s end
+		
+		local angleFactor = 1
+		elseif string.starts(line, "angleFactor:") then
+			local s = string.trim(string.sub(line, string.len("angleFactor:") + 1))
+			if (s or "") ~= "" then angleFactor = s end
+		
+		elseif string.starts(line, "compression:") then
+			local s = string.trim(string.sub(line, string.len("compression:") + 1))
+			if (s or "") ~= "" then newGhost.compression = s end
 			
 		elseif string.starts(line, "Keyframes") then
-			while true do
-				line = f:read()
-				if line == nil or string.starts(line, "End") then break end
-				
-				items = string.split(line, ",")
-				
-				local newKeyframe = {tonumber(items[1]), {tonumber(items[2]), tonumber(items[3]), tonumber(items[4])}, tonumber(items[5])}
-				
-				local i = 6
-				while items[i] ~= nil do
-					if string.starts(items[i], " segment") then
-						newKeyframe["segment"] = tonumber(string.sub(items[i], 10))
-					elseif string.starts(items[i], " animation") then
-						newKeyframe["animation"] = tonumber(string.sub(items[i], 12))
-					elseif string.starts(items[i], " dragon") then
-						newKeyframe["dragon"] = tonumber(string.sub(items[i], 9))--not used anymore
+			if (newGhost.compression or "none") == "diff" then
+				local lastKeyframe = {0, {0, 0, 0,},}
+				local lastAngle = 0
+				while true do
+					line = f:read()
+					if line == nil or string.starts(line, "End") then break end
+					
+					items = string.split(line, ",")
+					
+					local angle = tonumber(items[5])
+					local newKeyframe = {
+						tonumber(items[1]) + lastKeyframe[1],
+						{
+							tonumber(items[2]) + lastKeyframe[2][1],
+							tonumber(items[3]) + lastKeyframe[2][2],
+							tonumber(items[4]) + lastKeyframe[2][3],
+						},
+						(angle + lastAngle) / angleFactor,
+					}
+					lastAngle = lastAngle + angle
+					
+					local i = 6
+					while items[i] ~= nil do
+						if string.starts(items[i], "s") then
+							newKeyframe["segment"] = tonumber(string.sub(items[i], 3))
+						elseif string.starts(items[i], "a") then
+							newKeyframe["animation"] = tonumber(string.sub(items[i], 3))
+						end
+						i = i + 1
 					end
-					i = i + 1
+					
+					table.insert(newKeyframes, newKeyframe)
+					lastKeyframe = newKeyframe
 				end
-				
-				table.insert(newKeyframes, newKeyframe)
+
+			else
+				while true do
+					line = f:read()
+					if line == nil or string.starts(line, "End") then break end
+					
+					items = string.split(line, ",")
+					
+					local newKeyframe = {tonumber(items[1]), {tonumber(items[2]), tonumber(items[3]), tonumber(items[4])}, tonumber(items[5])}
+					
+					local i = 6
+					while items[i] ~= nil do
+						if string.starts(items[i], " segment") then
+							newKeyframe["segment"] = tonumber(string.sub(items[i], 10))
+						elseif string.starts(items[i], " animation") then
+							newKeyframe["animation"] = tonumber(string.sub(items[i], 12))
+						end
+						i = i + 1
+					end
+					
+					table.insert(newKeyframes, newKeyframe)
+				end
 			end
 		elseif string.starts(line, "dragonSplits") then
 			items = string.split(string.sub(line, 14), ",")
@@ -4804,13 +5356,54 @@ function loadRecordingFromFile(path)
 				table.insert(newDragonSplits, tonumber(items[i]))
 				i = i + 1
 			end
+			
+		elseif string.starts(line, "segmentSplits") then
+			newSegmentSplits = JSON:decode(string.sub(line, 15))
 		end
     end
 	f:close()
 	
 	newGhost.keyframes = newKeyframes
 	newGhost.dragonSplits = newDragonSplits
+	newGhost.segmentSplits = newSegmentSplits
 	return newGhost
+end
+
+function loadRecordingUsingCache(meta, collection, color)
+
+	--Make sure this thing is real
+	if type(meta) ~= "table" then return nil, false end
+	
+	if loadedGhostCache[meta.uid] then
+		-- Condition: This ghost is already loaded and doesn't need to be read from file again.
+		local alreadyLoaded = segment_ghostsSet[meta.uid] or run_ghostsSet[meta.uid]
+		local ghost = loadedGhostCache[meta.uid].data
+		
+		-- It is possible for the same ghost to exist in multiple collections. If the
+		-- ghost is loaded from multiple collections at the same time, it will prefer
+		-- to represent a collection that is not the default collection (playerName).
+		-- For example: if the player exports their golds to a new collection and
+		-- then changes the color for the gold collection, that will always be the
+		-- color that is used, even though those ghosts still exist in the default
+		-- collection.
+		if not alreadyLoaded or collection ~= playerName then
+			ghost.collection = collection
+		end
+		ghost.color = color or (segment_ghostSettings[ghost.collection] or {}).color or 0xFFFFFFFF
+		return ghost, alreadyLoaded
+	else
+		-- Condition: Only the metadata from this ghost is currently loaded, so the data needs to be read from file.
+		local ghost = loadGhostFromMeta(meta)
+		if Ghost.isGhost(ghost) then
+			loadedGhostCache[meta.uid] = {data = ghost}
+			ghost.collection = collection
+			ghost.color = color or (segment_ghostSettings[collection] or {}).color or 0xFFFFFFFF
+			return ghost, false
+		else
+			showError("Something went wrong when loading ghost.")
+			return nil, false
+		end
+	end
 end
 
 -------------------------
@@ -5556,11 +6149,19 @@ function menu_populateSegments()
 	--]]
 end
 
+function ordinal(n)
+	if n % 10 == 1 then return tostring(n) .. "st" end
+	if n % 10 == 2 then return tostring(n) .. "nd" end
+	if n % 10 == 3 then return tostring(n) .. "rd" end
+	return tostring(n) .. "th"
+end
+
 -------------------------
 -- Events
 -------------------------
 
 function onLoadSavestate()
+	rebuildAllGhosts = true
 	
 	requestedState = nil
 	os.remove(file.combinePath("data", "requestedState.txt"))
@@ -5572,8 +6173,13 @@ function onLoadSavestate()
 		memory.write_u16_le(0x075AC0 + m[5], math.random(0x10000))
 		memory.write_u16_le(0x075AC2 + m[5], math.random(0x10000))
 	
-		if recordingMode == "segment" then
+		if recordingMode == "segment" or recordingMode == "run" then
 			for i, ghost in ipairs(segment_ghosts) do
+				if Ghost.isGhost(ghost) then
+					ghost:endPlayback()
+				end
+			end
+			for i, ghost in ipairs(run_ghosts) do
 				if Ghost.isGhost(ghost) then
 					ghost:endPlayback()
 				end
@@ -5621,9 +6227,7 @@ do
 	
 	settings_load()
 	
-	if controls == nil or controls == {} then
-		controls_restoreDefault()
-	end
+	controls_verify()
 	
 	tryToLoadSkinFromFile()
 	
@@ -5783,9 +6387,9 @@ while true do
 		
 		-- Handle recording		
 		Ghost.update(manual_recording)
-		Ghost.update(manual_ghost)
 		
 		Ghost.update(segment_recording)
+		Ghost.update(run_recording)
 		
 		if segment_dragonSplitThisFrame then
 			local splitNumber = #((segment_recording or {}).dragonSplits or {})
@@ -5797,19 +6401,62 @@ while true do
 			end
 		end
 		
+		if rebuildAllGhosts then
+			rebuildAllGhosts = false
+			allGhosts = {}
+			if manual_ghost ~= nil then table.insert(allGhosts, manual_ghost) end
+			for i, ghost in ipairs(segment_ghosts) do
+				table.insert(allGhosts, ghost)
+			end
+			for i, ghost in ipairs(run_ghosts) do
+				table.insert(allGhosts, ghost)
+			end
+		end
+		
 		-- Update the locations of ghosts for this frame
-		for i, ghost in ipairs(segment_ghosts) do
+		for i, ghost in ipairs(allGhosts) do
 			Ghost.update(ghost)
 		end
 		-- Sort ghosts by distance in front of the camera
-		table.sort(segment_ghosts, function(a, b)
+		table.sort(allGhosts, function(a, b)
 			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
 			return a._cameraRange > b._cameraRange
 		end)
 		-- Draw the ghosts
-		for i, ghost in ipairs(segment_ghosts) do
+		for i, ghost in ipairs(allGhosts) do
 			ghost:draw()
 		end
+		
+		-- Update rankings in full run mode
+		if recordingMode == "run" then
+			if run_recording ~= nil then
+				run_updateRankings()
+			end
+			-- show current rankings in full run mode
+			if run_showRanking then
+				local x = border_right - 20
+				local y = 60
+				local dy = 14--vertical spacing between lines
+				run_rankingPlace = 0
+				for i, v in ipairs(run_ranking) do
+					if v == run_recording then run_rankingPlace = i end
+					if run_showRankList and i <= 8 then
+						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
+						y = y + dy
+					end
+					if run_showRankNames and v.ghostLevel == currentLevel and v._position then
+						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3] + 280)
+						if gx > 0 then
+							gui.drawText(gx, gy, v.rankingName, v.color, nil, 12, nil, nil, "center", "bottom")
+						end
+					end
+				end
+				if run_showRankPlace and run_rankingPlace > 0 then
+					gui.drawText(x, 30, ordinal(run_rankingPlace), "white", "black", 18, nil, nil, "right")
+				end
+			end
+		end
+	
 		
 		-- Update health as needed when loading savestates
 		if (setHealth_armed or -1) > -1 and loadingState == -1 then
@@ -5841,15 +6488,21 @@ while true do
 				draw_inputs()
 				menu_showInputs = menu_showInputs - 1
 				
-			elseif menu_segmentUpdate_timer > 0 then
-			
-				draw_updateSegment()
-				menu_segmentUpdate_timer = menu_segmentUpdate_timer - 1
-			
-			elseif quickDelta_timer > 0 then
-			
-				quickDelta_draw()
-				quickDelta_timer = quickDelta_timer - 1
+			else
+				if menu_segmentUpdate_timer > 0 then
+				
+					draw_updateSegment()
+					menu_segmentUpdate_timer = menu_segmentUpdate_timer - 1
+				
+				elseif quickDelta_timer > 0 then
+				
+					quickDelta_draw()
+					quickDelta_timer = quickDelta_timer - 1
+				end
+				
+				if menu_showEndOfRun then
+					draw_endOfRun()
+				end
 			end
 		end
 		
@@ -5873,6 +6526,16 @@ while true do
 		if not inTitleScreen or memory.read_u32_le(0x076C60 + m[4]) == 0 then
 			memory.write_u32_le(0x078C48 + m[4], 1)--This disables control of Spyro. This stops Spyro from reacting to inputs if the player opens the script's menu while the game is unpaused.
 			memory.write_u16_le(0x077380 + m[4], 0xF9F0)--as far as I can tell, this is telling the game that all the buttons were held down in the previous frame, preventing any button press events triggering. This prevents the player's inputs from reaching the game's menu if the game is paused while the script's menu is open.
+		end
+	end
+	
+	-- Unload any ghosts (from loadedGhostCache) that are no longer being used
+	if cleanCachedGhosts and not segment_preloadAllGhosts then
+		cleanCachedGhosts = false
+		for k, v in pairs(loadedGhostCache) do
+			if not segment_ghostsSet[k] and not run_ghostsSet[k] then
+				loadedGhostCache[k] = nil
+			end
 		end
 	end
 	
