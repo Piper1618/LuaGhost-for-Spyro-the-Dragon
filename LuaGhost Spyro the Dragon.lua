@@ -4354,7 +4354,7 @@ function run_loadGhosts()
 		table.insert(run_ranking, v)
 	end
 	table.sort(run_ranking, function(a, b)
-		return a.length < b.length
+		return a.length * framerate / a.framerate < b.length * framerate / b.framerate
 	end)
 	for i, v in ipairs(run_ranking) do
 		v.rankingName = run_getRankingName(i)
