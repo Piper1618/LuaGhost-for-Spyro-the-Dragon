@@ -3823,16 +3823,16 @@ do
 end
 
 function getFormattedTime(frames, forceSign, forceFrames, useLetters)
+	
+	local hourMarker = ":"
+	local minuteMarker = ":"
+	local secondMarker = ""
+	local frameMarker = ""
 	if useLetters then
-		local hourMarker = "h"
-		local minuteMarker = "m"
-		local secondMarker = "s"
-		local frameMarker = "f"
-	else
-		local hourMarker = ":"
-		local minuteMarker = ":"
-		local secondMarker = ""
-		local frameMarker = ""
+		hourMarker = "h"
+		minuteMarker = "m"
+		secondMarker = "s"
+		frameMarker = "f"
 	end
 
 	local fps = framerate
