@@ -4464,7 +4464,12 @@ function run_halt()
 	if Ghost.isGhost(run_recording) then
 	
 		if run_rankingPlace > 0 then
-			run_finalRank = run_rankingPlace
+			run_finalRank = 1
+			for i, v in ipairs(run_ranking) do
+				if v ~= run_recording and run_recording.length >= v.length * framerate / v.framerate then
+					run_finalRank = run_finalRank + 1
+				end
+			end
 		end
 	
 		run_recording:endRecording()
