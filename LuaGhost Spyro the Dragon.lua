@@ -3901,6 +3901,7 @@ function clearAllRecordingData()
 	tryRunGlobalFunction("segment_clearData")
 	tryRunGlobalFunction("run_clearData")
 	allGhosts = {}
+	hideAllGhosts = false
 end
 
 -------------------------
@@ -6162,6 +6163,8 @@ end
 
 function onLoadSavestate()
 	rebuildAllGhosts = true
+	
+	hideAllGhosts = false
 	
 	requestedState = nil
 	os.remove(file.combinePath("data", "requestedState.txt"))
