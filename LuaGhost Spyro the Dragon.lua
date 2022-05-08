@@ -3924,6 +3924,8 @@ do -- Variables used by all recording modes
 	
 	allGhosts = {}
 	rebuildAllGhosts = false
+	
+	hideAllGhosts = false
 end
 
 function clearAllRecordingData()
@@ -6452,7 +6454,9 @@ while true do
 		end
 		
 		-- Check that we should draw the ghosts
-		if not hideAllGhosts then
+		if hideAllGhosts then
+			gui.drawText(border_right - 20, border_bottom - 20, "Ghosts are hidden", "white", "black", 12, nil, "bottom", "right")
+		else
 			-- Sort ghosts by distance in front of the camera
 			table.sort(allGhosts, function(a, b)
 				if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
