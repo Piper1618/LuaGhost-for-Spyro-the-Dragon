@@ -6417,14 +6417,18 @@ while true do
 		for i, ghost in ipairs(allGhosts) do
 			Ghost.update(ghost)
 		end
-		-- Sort ghosts by distance in front of the camera
-		table.sort(allGhosts, function(a, b)
-			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
-			return a._cameraRange > b._cameraRange
-		end)
-		-- Draw the ghosts
-		for i, ghost in ipairs(allGhosts) do
-			ghost:draw()
+		
+		-- Check that we should draw the ghosts
+		if not hideAllGhosts then
+			-- Sort ghosts by distance in front of the camera
+			table.sort(allGhosts, function(a, b)
+				if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
+				return a._cameraRange > b._cameraRange
+			end)
+			-- Draw the ghosts
+			for i, ghost in ipairs(allGhosts) do
+				ghost:draw()
+			end
 		end
 		
 		-- Update rankings in full run mode
