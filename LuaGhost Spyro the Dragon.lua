@@ -2141,6 +2141,36 @@ action_data = {
 			end
 		end,
 	},
+	{
+		name = "hideGhosts",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "manual",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
+	{
+		name = "hideGhosts_segment",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "segment",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
+	{
+		name = "hideGhosts_run",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "run",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
 }
 
 function processActionData()
