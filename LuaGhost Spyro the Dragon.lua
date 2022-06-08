@@ -678,6 +678,7 @@ do
 	showSpyroPosition = 0
 	showArtisanProps = 0
 	showSunnyFlightScanner = false
+	showGemRange = false
 	
 	showBonkCounter = false
 	bonkCounter = 0
@@ -1439,6 +1440,7 @@ do
 		"quickUpdatingGems",
 		"showArtisanProps",
 		"showSunnyFlightScanner",
+		"showGemRange",
 		"showGhostAnimations",
 		"currentPalette_name",
 		"recordingMode",
@@ -2703,6 +2705,7 @@ menu_data = {
 			{action = "offTrueDelayedSetting", targetVariable = "showSpyroPosition", prettyName = "Show Spyro's Position", description = "Renders a ghost at Spyro's position."},
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
 			{action = "onOffSetting", targetVariable = "showSunnyFlightScanner", prettyName = "Show Sunny Flight Scanner", description = "Show a minimap of the area surrounding the planes in Sunny Flight."},
+			{action = "onOffSetting", targetVariable = "showGemRange", prettyName = "Show Gem Pickup Range", description = "Show an indicator of the octagonal area within which a gem can be picked up by Sparx."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
 			{action = "onOffSetting", targetVariable = "showDeltaPercent", prettyName = "Show Delta Percent", description = "At the end of each segment, show the percent difference from the comparison time."},
