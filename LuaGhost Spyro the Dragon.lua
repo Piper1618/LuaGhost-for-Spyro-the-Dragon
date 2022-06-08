@@ -1126,6 +1126,40 @@ function drawCross_world (x, y, z)
 	drawLine_screen (sx, sy-height, sx, sy+height)
 end
 
+function drawRange(coord, range)
+	local x, y, z
+	if type(coord) == "number" then
+		x = memory.read_u32_le(coord)
+		y = memory.read_u32_le(coord + 0x04)
+		z = memory.read_u32_le(coord + 0x08)
+	elseif type(coord) == "table" then
+		x = coord[1]
+		y = coord[2]
+		z = coord[3]
+	end
+	
+	local c = 0.7
+	local list = {
+		{x - range, y, z},
+		{x - range * c, y + range * c, z},
+		{x, y + range, z},
+		{x + range * c, y + range * c, z},
+		{x + range, y, z},
+		{x + range * c, y - range * c, z},
+		{x, y - range, z},
+		{x - range * c, y - range * c, z},
+	}
+	
+	drawLine_worldVector(list[1], list[2])
+	drawLine_worldVector(list[2], list[3])
+	drawLine_worldVector(list[3], list[4])
+	drawLine_worldVector(list[4], list[5])
+	drawLine_worldVector(list[5], list[6])
+	drawLine_worldVector(list[6], list[7])
+	drawLine_worldVector(list[7], list[8])
+	drawLine_worldVector(list[8], list[1])
+end
+
 function drawLine_worldVector (v1, v2)-- ({1, 2, 3}, {4, 5, 6})
 	drawLine_world (v1[1], v1[2], v1[3], v2[1], v2[2], v2[3])
 end
