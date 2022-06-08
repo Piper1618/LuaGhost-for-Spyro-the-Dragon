@@ -615,7 +615,7 @@ function detectSegmentEvents()
 			end
 		else
 			-- Condition: All other routes, including any%, which should end on killing Gnasty Gnorc
-			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 then
+			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 and currentLevel == 63 then
 				run_halt()
 			end
 		end	
