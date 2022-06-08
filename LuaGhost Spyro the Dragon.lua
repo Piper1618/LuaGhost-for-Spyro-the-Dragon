@@ -6485,7 +6485,7 @@ while true do
 						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
 						y = y + dy
 					end
-					if run_showRankNames and v.ghostLevel == currentLevel and v._position then
+					if run_showRankNames and v.ghostLevel == currentLevel and v._position and not hideAllGhosts then
 						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3] + 280)
 						if gx > 0 then
 							gui.drawText(gx, gy, v.rankingName, v.color, nil, 12, nil, nil, "center", "bottom")
