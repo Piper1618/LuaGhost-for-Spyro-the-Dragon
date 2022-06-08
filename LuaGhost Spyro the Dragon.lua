@@ -3719,7 +3719,7 @@ function draw_endOfRun()
 		if showDeltaPercent then
 			percent = menu_runUpdate_delta / (run_lastRecording.length - menu_runUpdate_delta)
 			local sign = percent >= 0 and "+" or ""
-			percent = "   " .. string.format("%s%.0d%%", sign, percent * 100)
+			percent = "   " .. string.format("%s%d%%", sign, percent * 100)
 		end
 
 		local s, c = getFormattedTime(menu_runUpdate_delta, true, menu_runUpdate_forceFrames)--This should not be calculated here. 
