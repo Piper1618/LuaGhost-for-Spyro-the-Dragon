@@ -6418,6 +6418,39 @@ while true do
 			memory.write_u32_le(0x077FC8 + m[4], math.max(memory.read_u32_le(0x077FC8 + m[4]), memory.read_u32_le(gemCountAddress) - 1))
 		end
 		
+		-- Draw gem ranges
+		if showGemRange and (gameState == 0 or gameState == 4 or gameState == 8)  then
+			local entityTableAddr = memory.read_u32_le(0x075828 + m[3])
+			-- Loop through entity table
+			for i = 0, 200 do
+				local addr = entityTableAddr + 0x58 * i
+				local active = memory.read_s8(addr + 0x48)
+				-- The table terminates with an entity with activity of -1
+				if active == -1 then
+					break
+				end
+				local entityType = memory.read_s16_le(addr + 0x36)
+				if active > -1 and entityType >= 0x53 and entityType <= 0x57 then
+					-- Condition: entity is active and a gem
+					if memory.read_s8(addr + 0x49) < 3 then
+						-- Condition: gem has not yet been picked up by Sparxs
+						-- This memory address has a value of 1 when the gem is resting
+						-- on the ground, 2 when it is falling, and 3 when it is homing
+						-- in on Spyro.
+						local x = memory.read_u32_le(addr + 0x0C)
+						local y = memory.read_u32_le(addr + 0x10)
+						local z = memory.read_u32_le(addr + 0x14)
+						local distanceFromCamera = math.sqrt((cameraX - x)^2 + (cameraY - y)^2 + (cameraZ - z)^2)
+						if distanceFromCamera < 14000 then
+							--The gem's range will fade in from an alpha of 0x00 at 14000 to an alpha of 0x80 at 10000					
+							drawColor = 0x00FFFFFF + bit.lshift(((math.min(10000 - distanceFromCamera, 0) / 4000) + 1) * 0x80, 24)
+							drawRange({x, y, z}, 0x059A)
+						end
+					end
+				end
+			end
+		end
+		
 		--Handle Spyro Palettes
 		if loadingState == 6 and lastLoadingState ~= 6 then
 			-- Spyro's palette data gets overwritten during
