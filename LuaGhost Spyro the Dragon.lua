@@ -6425,7 +6425,7 @@ while true do
 		if showGemRange and (gameState == 0 or gameState == 4 or gameState == 8)  then
 			local entityTableAddr = memory.read_u32_le(0x075828 + m[3])
 			-- Loop through entity table
-			for i = 0, 200 do
+			for i = 0, 300 do
 				local addr = entityTableAddr + 0x58 * i
 				local active = memory.read_s8(addr + 0x48)
 				-- The table terminates with an entity with activity of -1
