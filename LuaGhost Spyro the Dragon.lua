@@ -6533,6 +6533,7 @@ while true do
 				return a._cameraRange > b._cameraRange
 			end)
 			-- Draw the ghosts
+			drawColor = 0xE0FFFFFF -- default ghost color
 			for i, ghost in ipairs(allGhosts) do
 				ghost:draw()
 			end
