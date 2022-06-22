@@ -36,8 +36,9 @@ function io.popen(s)
 	return io.input("data" .. seperator .. "popen.txt")
 end
 
--- Ensure the data folder exists
+-- Ensure that needed folders exist
 os.execute("mkdir data")
+os.execute("mkdir Savestates")
 
 
 -------------------------
@@ -638,18 +639,19 @@ function detectSegmentEvents()
 	-- Create Save State
 	-------
 	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") then
-		
-		local folder = "Savestates"
-		if not file.exists(folder) then
-			file.createFolder(folder) 
-		end
-		
-		local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
-		if not file.exists(f) then
-			savestate.save(f)
-			setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, f)
-			showDebug("Created save state: " .. f)
+		-- Validate this is a real level
+		if levelInfo[(currentSegment or {})[2]] then
+			
+			local folder = "Savestates"
+			
+			local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
+		
+			if not file.exists(f) then
+				savestate.save(f)
+				setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, f)
+				showDebug("Created save state: " .. f)
+			end
 		end
 	end
 	
