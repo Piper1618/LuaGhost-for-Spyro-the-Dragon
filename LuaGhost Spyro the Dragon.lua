@@ -2055,6 +2055,44 @@ action_data = {
 		end,
 	},
 	{
+		name = "nameState",
+		
+		dontCloseMenu = true, -- This action won't automatically close the menu if activated from inside the action menu
+		
+		prettyName = "Name Current Savepoint",
+		recordingMode = "manual",
+		description = "Name the current savepoint, allowing it to be reloaded later.",
+		actionFunction = manual_createNamedSave,
+	},
+	{
+		name = "loadNamedSave",
+		
+		dontCloseMenu = true, -- This action won't automatically close the menu if activated from inside the action menu
+		
+		prettyName = "Load Named Savepoint",
+		recordingMode = "manual",
+		description = "Load a named savepoint.",
+		actionFunction = function()
+			menu_open("named savepoint menu")
+		end,
+	},
+	{
+		name = "loadNextNamedSave",
+		
+		prettyName = "Load Next Savepoint",
+		recordingMode = "manual",
+		description = "Load the next named savepoint.",
+		actionFunction = manual_loadNextNamedSave,
+	},
+	{
+		name = "loadPreviousNamedSave",
+		
+		prettyName = "Load Previous Savepoint",
+		recordingMode = "manual",
+		description = "Load the previous named savepoint.",
+		actionFunction = manual_loadPreviousNamedSave,
+	},
+	{
 		name = "updateSegment",
 		
 		prettyName = "Save Segment Ghost",
@@ -2238,7 +2276,8 @@ function getActionName(action)
 	return "Unknown Action: " .. tostring(action)
 end
 
-function handleAction(action)
+function handleAction(action, fromMenu)
+	if fromMenu and not (action_data[action] or {}).dontCloseMenu then menu_close() end
 	if type((action_data[action] or {}).actionFunction) == "function" then
 		action_data[action].actionFunction()
 	end
@@ -2438,8 +2477,8 @@ function menu_select(squareSelect)
 			showError("Oops, something went wrong. Trying to load nonexistant file." )
 		end
 	elseif selectedAction == "performAction" then
-		menu_close()
-		handleAction(selectedItem.targetAction)
+		--menu_close()
+		handleAction(selectedItem.targetAction, true)
 	end
 	
 	-- If this menu item has a custom function to call, do
@@ -2907,6 +2946,72 @@ menu_data = {
 					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "PostCredits"},},})
 				end
 				table.insert(menu_items, {action = "back",})
+			end
+		end,
+	},
+	["named savepoint menu"] = {
+		menuType = "normal",
+		title = "Named Savepoints",
+		description = nil,
+		items = {},
+		openFunction = function(self)
+			
+			manual_populateNamedSavesIfNeeded()
+			
+			local commonDescription = "Press X to load savepoint. Press square to delete savepoint."
+			
+			menu_items = {}
+			
+			if manual_namedSaves._head.Next == manual_namedSaves._head then
+				-- Condition: No named states exist, so refuse to open menu
+				menu_back()
+				menu_open("notice", {message = "There are no named savepoints yet. You can create one by setting a savepoint and then selecting \"Name Current Savepoint\" from the action menu."})
+				return
+			end
+			
+			local target = manual_namedSaves._head
+			
+			while target ~= manual_namedSaves._head.prev do
+				target = target.Next
+				table.insert(menu_items, {action = "function", target = target, display = target.name, description = commonDescription,
+					selectFunction = function(self)
+						-- Function when the player presses X to load save
+						manual_loadNamedSave(self.target)
+						menu_close()
+					end, squareSelect = {action = "function", target = target,
+						selectFunction = function(self)
+							-- Function when the player pressed Square to delete save
+							
+							-- Remove the menu item
+							table.remove(menu_items, menu_cursor)
+							-- Menu up if we're at the end of the menu
+							if menu_cursor > #menu_items then
+								menu_cursor = math.max(1, menu_cursor - 1)
+							end
+							menu_cursorFlash_timer = menu_cursorFlash_period
+							menu_cursorFlash = true
+							-- Delete the file
+							os.remove(self.target.fileName)
+							-- Remove file from cache
+							setGlobalVariable({"savestateData", "manual", "all", self.target.name}, nil)
+							-- Remove the save from manual_namedSaves
+							if self.target.Next == self.target then
+								-- Condition: There is only one item left in the list
+								manual_namedSaves = nil
+								manual_currentNamedSave = nil
+								menu_back()
+							else
+								-- Condition: There will still be at least one
+								-- item left in the list after deleting this one
+								self.target.Next.prev = self.target.prev
+								self.target.prev.Next = self.target.Next
+								if manual_currentNamedSave == self.target then
+									manual_currentNamedSave = self.target.Next
+								end
+							end
+						end,
+					},
+				})
 			end
 		end,
 	},
@@ -3983,6 +4088,8 @@ do -- Manual Mode Variables
 	manual_recording = nil
 	manual_ghost = nil
 	manual_stateExists = false
+	manual_namedSaves = nil
+	manual_currentNamedSave = nil
 end
 
 function manual_clearData()
@@ -4001,6 +4108,107 @@ end
 function loadQuickSavestate()
 	saveStateRequested = true
 	savestate.load(file.combinePath("data", "quicksave"))
+end
+
+function manual_populateNamedSavesIfNeeded()
+	if manual_namedSaves == nil then
+		manual_currentNamedSave = nil
+		
+		manual_namedSaves = {_head = {name = "_head"}}
+		manual_namedSaves._head.Next = manual_namedSaves._head
+		manual_namedSaves._head.prev = manual_namedSaves._head
+		
+		local firstItem = {}
+		for s, f in pairs(getGlobalVariable({"savestateData", "manual", "all"}) or {}) do
+			local target = manual_namedSaves._head
+			while s > target.Next.name and target.Next ~= manual_namedSaves._head do
+				target = target.Next
+			end
+			manual_namedSaves[s] = {name = s, fileName = f,}
+			manual_namedSaves[s].Next = target.Next
+			manual_namedSaves[s].prev = target
+			target.Next.prev = manual_namedSaves[s]
+			target.Next = manual_namedSaves[s]
+		end
+		manual_namedSaves._head.Next.prev = manual_namedSaves._head.prev
+		manual_namedSaves._head.prev.Next = manual_namedSaves._head.Next
+	end
+end
+
+function manual_createNamedSave ()
+	if manual_stateExists then
+		menu_open("keyboard input", {
+			description = "Please enter a name for this savepoint. Any savepoint with the same name will be overwritten.",
+			openFunction = function(self) self.keyboard_output = "" end,
+			doneFunction = function(self) 
+				self.keyboard_output = bizstring.replace(string.trim(self.keyboard_output), "-", "_")
+				if (self.keyboard_output or "") ~= "" then
+					if self.keyboard_output == "_head" then self.keyboard_output = "__head" end
+					local f = file.combinePath("Savestates", displayType .. " - manual - all - " .. self.keyboard_output .. " - v1.state")
+					file.copy(file.combinePath("data", "quicksave"), f)
+					setGlobalVariable({"savestateData", "manual", "all", self.keyboard_output}, f)
+					manual_namedSaves = nil
+				end
+				menu_back()
+			end,
+		})
+	else
+		if menu_state == nil then
+			showMessage("Set a savepoint first, then name it.")
+		else
+			menu_open("notice", {message = "No savepoint currently exists. Please set a savepoint first. Then you can name it."})
+		end
+	end
+end
+
+function manual_loadNamedSave (target)
+	-- We need target to reference an entry in
+	-- manual_namedSaves. If it is a string, try using
+	-- using it as a key.
+	if type(target) == "string" then target = manual_namedSaves[target] end
+	
+	-- If we still don't have a table, then return error
+	if type(target) ~= "table" then
+		showMessage("Failed to load named savepoint: unrecognized target")
+		return
+	end
+	
+	-- Check that the target contains a filename
+	if target.fileName == nil then
+		if target == manual_namedSaves._head then
+			if manual_namedSaves._head.Next == manual_namedSaves._head then
+				showMessage("Failed to load named savepoint: none currently exist")
+				return
+			else
+				showMessage("Failed to load named savepoint: target out of bounds")
+				return
+			end
+		end
+		showMessage("Failed to load named savepoint: target lacks filename")
+		return
+	end
+	
+	-- Load the named save
+	manual_clearData()
+	
+	manual_currentNamedSave = target
+	manual_stateExists = true
+
+	file.copy(target.fileName, file.combinePath("data", "quicksave"))
+	
+	loadQuickSavestate()
+end
+
+function manual_loadNextNamedSave()
+	manual_populateNamedSavesIfNeeded()
+	manual_currentNamedSave = manual_currentNamedSave or manual_namedSaves._head
+	manual_loadNamedSave(manual_currentNamedSave.Next)
+end
+
+function manual_loadPreviousNamedSave()
+	manual_populateNamedSavesIfNeeded()
+	manual_currentNamedSave = manual_currentNamedSave or manual_namedSaves._head
+	manual_loadNamedSave(manual_currentNamedSave.prev)
 end
 
 -------------------------
