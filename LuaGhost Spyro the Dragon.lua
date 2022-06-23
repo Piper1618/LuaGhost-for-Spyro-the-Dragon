@@ -4362,7 +4362,46 @@ function segment_halt(haltCondition)
 	
 	-- Handle full runs
 	if recordingMode == "run" and run_recording ~= nil then
-		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
+		-- Record the time of this split in the current full run recording.
+		
+		-- If halt is conditional, the split  isonly be recorded if
+		-- it is not overwriting one that already exists.
+		local conditionalHalt = false
+		-- If halt is not valid, the split will never be recorded.
+		local validHalt = true
+		
+		if haltCondition == "flightLevelFail" then
+			-- Do not record flight level fails
+			validHalt = false
+		elseif haltCondition == "levelLoad" then
+			if levelInfo[currentSegment[2]].flightLevel and currentSegment[3] == "Entry" then
+				-- Only record the exit from a flight level if we exit
+				-- without first getting a flightLevelSucceed halt.
+				conditionalHalt = true
+			end
+		elseif haltCondition == "balloon" then
+			conditionalHalt = true
+		end
+		
+		local sh = getSegmentHandle()
+		
+		--print(string.format("%s %d %s", currentSegment[1], currentSegment[2], currentSegment[3]))
+		
+		if validHalt then
+			if conditionalHalt then
+				if run_recording.segmentSplits[sh] == nil then
+					run_recording.segmentSplits[sh] = emu.framecount() - run_recording.zeroFrame
+					--print(string.format("%d - %s - Halt Accepted", emu.framecount(), haltCondition))
+				else
+					--print(string.format("%d - %s - Halt Rejected", emu.framecount(), haltCondition))
+				end
+			else
+				run_recording.segmentSplits[sh] = emu.framecount() - run_recording.zeroFrame
+				--print(string.format("%d - %s - Halted", emu.framecount(), haltCondition))
+			end
+		else
+			--print(string.format("%d - %s - Halt Invalid", emu.framecount(), haltCondition))
+		end
 	end
 	if recordingMode == "run" and not run_showSegmentGhosts then return end
 	
