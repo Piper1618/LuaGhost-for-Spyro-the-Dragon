@@ -4730,7 +4730,7 @@ function run_updateRankings()
 				
 				-- Check if ghostA is not the player and has just finished a segment
 				-- that the player is currently working on.
-				if gameState ~= 12 and ghostA ~= run_recording and seg == getSegmentHandle() then
+				if ghostA ~= run_recording and seg == getSegmentHandle() and run_recording.segmentSplits[seg] == nil then
 					table.insert(overtakes, {ghostA, run_recording})
 				end
 				
