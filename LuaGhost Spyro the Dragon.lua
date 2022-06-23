@@ -4655,26 +4655,48 @@ function run_updateRankings()
 	
 	local overtakes = {}
 	
-	for i, v in ipairs(run_ranking) do
-		local oldTime = v.rankingLastFrame
-		local newTime = emu.framecount() - v.zeroFrame
-		for k, t in pairs(v.segmentSplits) do
+	-- Loop through all the ghosts in the race
+	for rankA, ghostA in ipairs(run_ranking) do
+		local oldTime = ghostA.rankingLastFrame
+		local newTime = emu.framecount() - ghostA.zeroFrame
+		-- Search through the possible segments
+		for seg, t in pairs(ghostA.segmentSplits) do
+			-- Check if we've completed this segment this frame
 			if t > oldTime and t <= newTime then
-				--print("split: " .. tostring(v.rankingName))
-				for ii, vv in ipairs(run_ranking) do
-					if ii >= i then break end
-					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
-						table.insert(overtakes, {v, vv})
+				-- Condition: ghostA has completed segment seg at on this frame
+				
+				--print("split: " .. tostring(ghostA.rankingName))
+				
+				-- Loop through the remaining ghosts, looking for any that have not yet completed this segment
+				for rankB, ghostB in ipairs(run_ranking) do
+				
+					-- if ghostB is ranked behind ghostA, then ghostA cannot be overtaking at this time
+					if rankB >= rankA then break end
+					
+					if ghostB.segmentSplits[seg] and ghostB.segmentSplits[seg] > t then
+						-- ghostB isn't going to complete this segment until later, so overtake them.
+						-- (We only know future times for the ghosts, so this check will never allow overtaking the player)
+						table.insert(overtakes, {ghostA, ghostB})
 					end
 				end
-				-- Check for overtaking the player
-				if gameState ~= 12 and v ~= run_recording and k == getSegmentHandle() then
-					table.insert(overtakes, {v, run_recording})
+				
+				-- The code above will allow the player to overtake ghosts, but not the other way around.
+				-- So the code below is needed to allow ghosts to overtake the player.
+				
+				-- (ghostA is the ghost that has finished a segment on this frame)
+				
+				-- Check if ghostA is not the player and has just finished a segment
+				-- that the player is currently working on.
+				if gameState ~= 12 and ghostA ~= run_recording and seg == getSegmentHandle() then
+					table.insert(overtakes, {ghostA, run_recording})
 				end
-				if v == run_recording then
-					for ii, vv in ipairs(run_ranking) do
-						if vv.segmentSplits[k] and vv.segmentSplits[k] < t then
-							table.insert(overtakes, {vv, v})
+				
+				-- Check if ghostA is the player and has just finished a segment that
+				-- another ghost has already finished.
+				if ghostA == run_recording then
+					for rankB, ghostB in ipairs(run_ranking) do
+						if ghostB.segmentSplits[seg] and ghostB.segmentSplits[seg] < t then
+							table.insert(overtakes, {ghostB, ghostA})
 						end
 					end
 				end
