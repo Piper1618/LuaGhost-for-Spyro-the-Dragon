@@ -561,18 +561,18 @@ function detectSegmentEvents()
 	
 		-- Detect level entry/exit. gameState 1 is used when entering and exiting levels
 		if gameState == 1 and lastGameState ~= 1 then
-			segment_halt()
+			segment_halt("levelLoad")
 		end
 		
 		-- Detect beating Gnasty Gnorc or completing Gnasty's Loot
 		if gameState == 14 and (currentLevel == 63 or currentLevel == 64) then
-			segment_halt()
+			segment_halt("cutsceneEntry")
 		end
 		
 		--Detect game over. gameState 5 is used during game over screen
 		if gameState == 5 and lastGameState ~= 5 then
 			if currentLevel % 10 ~= 0 then
-				segment_halt()
+				segment_halt("gameOver")
 				gameOverIsOverworld = false
 			else
 				gameOverIsOverworld = true
@@ -583,19 +583,19 @@ function detectSegmentEvents()
 		if gameState == 7 and lastGameState ~= 7 then
 			--gameState 7 is used on the ending screen
 			--of flight levels, whether successful or not
-			if segment_recording ~= nil then
-				local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])			
+			local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])
+			if segment_recording ~= nil then	
 				segment_recording.flightLevel = flightLevelObjectives == 32
 			end
-			segment_halt()
+			segment_halt(flightLevelObjectives == 32 and "flightLevelSucceed" or "flightLevelFail")
 		end
 		
 		--Detect balloon travel. gameState 12 is used when talking to balloonist and riding the balloon
 		if gameState == 12 and memory.read_s32_le(0x07576C + m[2]) == -1 then
-			segment_halt()
+			segment_halt("balloon")
 		end
 	
 	end
@@ -4352,7 +4352,7 @@ function segment_start()
 	end
 end
 
-function segment_halt()
+function segment_halt(haltCondition)
 	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
 	
 	
