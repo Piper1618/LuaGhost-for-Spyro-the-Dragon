@@ -4707,7 +4707,7 @@ function run_updateRankings()
 				break
 			end
 		end
-		v.rankingLastFrame = newTime
+		ghostA.rankingLastFrame = newTime
 	end
 	
 	--[[ DEBUG: show overtakes in console as they happen
