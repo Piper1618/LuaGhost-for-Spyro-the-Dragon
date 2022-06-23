@@ -594,8 +594,12 @@ function detectSegmentEvents()
 		end
 		
 		--Detect balloon travel. gameState 12 is used when talking to balloonist and riding the balloon
-		if gameState == 12 and memory.read_s32_le(0x07576C + m[2]) == -1 then
-			segment_halt("balloon")
+		if gameState == 12 then
+			local _balloonTravelFlag = memory.read_s32_le(0x07576C + m[2])
+			if _balloonTravelFlag == -1 and balloonTravelFlag ~= -1 then
+				segment_halt("balloon")
+			end
+			balloonTravelFlag = _balloonTravelFlag
 		end
 	
 	end
