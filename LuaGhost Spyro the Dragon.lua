@@ -4381,6 +4381,8 @@ function segment_halt(haltCondition)
 			end
 		elseif haltCondition == "balloon" then
 			conditionalHalt = true
+		elseif haltCondition == "cutsceneEntry" then
+			conditionalHalt = true
 		end
 		
 		local sh = getSegmentHandle()
