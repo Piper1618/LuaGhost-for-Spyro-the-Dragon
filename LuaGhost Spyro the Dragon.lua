@@ -2066,7 +2066,7 @@ action_data = {
 		prettyName = "Name Current Savepoint",
 		recordingMode = "manual",
 		description = "Name the current savepoint, allowing it to be reloaded later.",
-		actionFunction = manual_createNamedSave,
+		actionFunction = "manual_createNamedSave",
 	},
 	{
 		name = "loadNamedSave",
@@ -2086,7 +2086,7 @@ action_data = {
 		prettyName = "Load Next Savepoint",
 		recordingMode = "manual",
 		description = "Load the next named savepoint.",
-		actionFunction = manual_loadNextNamedSave,
+		actionFunction = "manual_loadNextNamedSave",
 	},
 	{
 		name = "loadPreviousNamedSave",
@@ -2094,7 +2094,7 @@ action_data = {
 		prettyName = "Load Previous Savepoint",
 		recordingMode = "manual",
 		description = "Load the previous named savepoint.",
-		actionFunction = manual_loadPreviousNamedSave,
+		actionFunction = "manual_loadPreviousNamedSave",
 	},
 	{
 		name = "updateSegment",
