@@ -2282,8 +2282,8 @@ end
 
 function handleAction(action, fromMenu)
 	if fromMenu and not (action_data[action] or {}).dontCloseMenu then menu_close() end
-	if type((action_data[action] or {}).actionFunction) == "function" then
-		action_data[action].actionFunction()
+	if (action_data[action] or {}).actionFunction then
+		tryRunGlobalFunction(action_data[action].actionFunction)
 	end
 end
 
