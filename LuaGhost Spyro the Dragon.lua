@@ -9,7 +9,7 @@
 ----
 -------------------------
 
-_LuaGhostVersion = "1.2.0"
+_LuaGhostVersion = "1.3.0"
 
 -- Validate the version of BizHawk that is running
 do
