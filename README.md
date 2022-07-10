@@ -38,7 +38,11 @@ Most interaction with LuaGhost is done using the right stick since the game does
 
 From LuaGhost's menu, you can switch between two recording modes. The main one you'll probably be using (which should be active by default) is Segment Mode. This mode automates most of the process of creating and saving ghost files. It will create segment savestates automatically when starting a new save file, entering levels, exiting levels, or traveling between homeworlds. Whenever you end a segment, you will be prompted to save the ghost (by pressing the right stick up by default). This is needed because LuaGhost can't tell whether you've successfully completed a segment or are just navigating around the world.
 
-If you want to experiment with specific movement or tricks, you can switch to Manual Mode. This allows you to create a savestate anywhere you want and record a ghost starting from it. Currently, these ghosts are not saved to file and the savestates you create in this mode will not be remembered next time you load the script.
+You can switch to Full Run mode to record a complete speedrun from start to finish and race against your previous runs. If you want to change how many ghosts you race against or activate a racing game style ranking list, navigate in the LuaGhost menu to "Ghost Settings" -> "Full Run Ghost Settings". Here, you can also deside whether segment ghosts will be shown in addition to full run ghosts.
+
+To begin a run, you can start a new game from the game's title screen; or, you can navigate in the LuaGhost menu to "Action Menu" and select "Start Run". You won't be able to use the "Start Run" action until you have created Artisans Homeworld entry segment in Segment mode by starting a new game from the title screen.
+
+If you want to experiment with specific movement or tricks, you can switch to Manual Mode. This allows you to create a savestate anywhere you want and record a ghost starting from it. Currently, ghosts created in Manual mode are not saved to files and will not be remembered next time you load the script. If you want to be able to reload a manual savestate later, navigate in the LuaGhost menu to "Action Menu" and select "Name Current Savepoint". Named savepoints can be loaded by selecting "Load Named Savepoint" from the action menu.
 
 ## Ghost Collections
 
