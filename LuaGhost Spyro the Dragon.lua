@@ -9,7 +9,7 @@
 ----
 -------------------------
 
-_LuaGhostVersion = "1.2.0"
+_LuaGhostVersion = "1.3.0"
 
 -- Validate the version of BizHawk that is running
 do
@@ -36,8 +36,9 @@ function io.popen(s)
 	return io.input("data" .. seperator .. "popen.txt")
 end
 
--- Ensure the data folder exists
+-- Ensure that needed folders exist
 os.execute("mkdir data")
+os.execute("mkdir Savestates")
 
 
 -------------------------
@@ -560,18 +561,18 @@ function detectSegmentEvents()
 	
 		-- Detect level entry/exit. gameState 1 is used when entering and exiting levels
 		if gameState == 1 and lastGameState ~= 1 then
-			segment_halt()
+			segment_halt("levelLoad")
 		end
 		
 		-- Detect beating Gnasty Gnorc or completing Gnasty's Loot
 		if gameState == 14 and (currentLevel == 63 or currentLevel == 64) then
-			segment_halt()
+			segment_halt("cutsceneEntry")
 		end
 		
 		--Detect game over. gameState 5 is used during game over screen
 		if gameState == 5 and lastGameState ~= 5 then
 			if currentLevel % 10 ~= 0 then
-				segment_halt()
+				segment_halt("gameOver")
 				gameOverIsOverworld = false
 			else
 				gameOverIsOverworld = true
@@ -582,19 +583,23 @@ function detectSegmentEvents()
 		if gameState == 7 and lastGameState ~= 7 then
 			--gameState 7 is used on the ending screen
 			--of flight levels, whether successful or not
-			if segment_recording ~= nil then
-				local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
-				flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])			
+			local flightLevelObjectives = memory.read_u32_le(0x078630 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078634 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x078638 + m[4])
+			flightLevelObjectives = flightLevelObjectives + memory.read_u32_le(0x07863C + m[4])
+			if segment_recording ~= nil then	
 				segment_recording.flightLevel = flightLevelObjectives == 32
 			end
-			segment_halt()
+			segment_halt(flightLevelObjectives == 32 and "flightLevelSucceed" or "flightLevelFail")
 		end
 		
 		--Detect balloon travel. gameState 12 is used when talking to balloonist and riding the balloon
-		if gameState == 12 and memory.read_s32_le(0x07576C + m[2]) == -1 then
-			segment_halt()
+		if gameState == 12 then
+			local _balloonTravelFlag = memory.read_s32_le(0x07576C + m[2])
+			if _balloonTravelFlag == -1 and balloonTravelFlag ~= -1 then
+				segment_halt("balloon")
+			end
+			balloonTravelFlag = _balloonTravelFlag
 		end
 	
 	end
@@ -615,7 +620,7 @@ function detectSegmentEvents()
 			end
 		else
 			-- Condition: All other routes, including any%, which should end on killing Gnasty Gnorc
-			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 then
+			if memory.read_s8(memory.read_u32_le(0x075828 + m[3]) + 0x48) == 8 and currentLevel == 63 then
 				run_halt()
 			end
 		end	
@@ -638,18 +643,19 @@ function detectSegmentEvents()
 	-- Create Save State
 	-------
 	if lastLoadingState ~= 12 and loadingState == 12 and gameState ~= 14 and (gameState ~= 5 or not gameOverIsOverworld) and (recordingMode == "segment" or recordingMode == "run") then
-		
-		local folder = "Savestates"
-		if not file.exists(folder) then
-			file.createFolder(folder) 
-		end
-		
-		local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
 	
-		if not file.exists(f) then
-			savestate.save(f)
-			setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, f)
-			showDebug("Created save state: " .. f)
+		-- Validate this is a real level
+		if levelInfo[(currentSegment or {})[2]] then
+			
+			local folder = "Savestates"
+			
+			local f = file.combinePath(folder, displayType .. " - " .. "segment" .. " - " .. currentRoute .. " - " .. segmentToString(currentSegment) .. " - v1.state")
+		
+			if not file.exists(f) then
+				savestate.save(f)
+				setGlobalVariable({"savestateData", "segment", currentRoute, segmentToString(currentSegment)}, f)
+				showDebug("Created save state: " .. f)
+			end
 		end
 	end
 	
@@ -678,6 +684,7 @@ do
 	showSpyroPosition = 0
 	showArtisanProps = 0
 	showSunnyFlightScanner = false
+	showGemRange = false
 	
 	showBonkCounter = false
 	bonkCounter = 0
@@ -1126,6 +1133,40 @@ function drawCross_world (x, y, z)
 	drawLine_screen (sx, sy-height, sx, sy+height)
 end
 
+function drawRange(coord, range)
+	local x, y, z
+	if type(coord) == "number" then
+		x = memory.read_u32_le(coord)
+		y = memory.read_u32_le(coord + 0x04)
+		z = memory.read_u32_le(coord + 0x08)
+	elseif type(coord) == "table" then
+		x = coord[1]
+		y = coord[2]
+		z = coord[3]
+	end
+	
+	local c = 0.7
+	local list = {
+		{x - range, y, z},
+		{x - range * c, y + range * c, z},
+		{x, y + range, z},
+		{x + range * c, y + range * c, z},
+		{x + range, y, z},
+		{x + range * c, y - range * c, z},
+		{x, y - range, z},
+		{x - range * c, y - range * c, z},
+	}
+	
+	drawLine_worldVector(list[1], list[2])
+	drawLine_worldVector(list[2], list[3])
+	drawLine_worldVector(list[3], list[4])
+	drawLine_worldVector(list[4], list[5])
+	drawLine_worldVector(list[5], list[6])
+	drawLine_worldVector(list[6], list[7])
+	drawLine_worldVector(list[7], list[8])
+	drawLine_worldVector(list[8], list[1])
+end
+
 function drawLine_worldVector (v1, v2)-- ({1, 2, 3}, {4, 5, 6})
 	drawLine_world (v1[1], v1[2], v1[3], v2[1], v2[2], v2[3])
 end
@@ -1405,6 +1446,7 @@ do
 		"quickUpdatingGems",
 		"showArtisanProps",
 		"showSunnyFlightScanner",
+		"showGemRange",
 		"showGhostAnimations",
 		"currentPalette_name",
 		"recordingMode",
@@ -2017,6 +2059,44 @@ action_data = {
 		end,
 	},
 	{
+		name = "nameState",
+		
+		dontCloseMenu = true, -- This action won't automatically close the menu if activated from inside the action menu
+		
+		prettyName = "Name Current Savepoint",
+		recordingMode = "manual",
+		description = "Name the current savepoint, allowing it to be reloaded later.",
+		actionFunction = "manual_createNamedSave",
+	},
+	{
+		name = "loadNamedSave",
+		
+		dontCloseMenu = true, -- This action won't automatically close the menu if activated from inside the action menu
+		
+		prettyName = "Load Named Savepoint",
+		recordingMode = "manual",
+		description = "Load a named savepoint.",
+		actionFunction = function()
+			menu_open("named savepoint menu")
+		end,
+	},
+	{
+		name = "loadNextNamedSave",
+		
+		prettyName = "Load Next Savepoint",
+		recordingMode = "manual",
+		description = "Load the next named savepoint.",
+		actionFunction = "manual_loadNextNamedSave",
+	},
+	{
+		name = "loadPreviousNamedSave",
+		
+		prettyName = "Load Previous Savepoint",
+		recordingMode = "manual",
+		description = "Load the previous named savepoint.",
+		actionFunction = "manual_loadPreviousNamedSave",
+	},
+	{
 		name = "updateSegment",
 		
 		prettyName = "Save Segment Ghost",
@@ -2141,6 +2221,36 @@ action_data = {
 			end
 		end,
 	},
+	{
+		name = "hideGhosts",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "manual",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
+	{
+		name = "hideGhosts_segment",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "segment",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
+	{
+		name = "hideGhosts_run",
+		
+		prettyName = "Hide all ghosts",
+		recordingMode = "run",
+		description = "Too many ghosts on screen? Use this to hide and unhide them at any time.",
+		actionFunction = function()
+			hideAllGhosts = not hideAllGhosts
+		end,
+	},
 }
 
 function processActionData()
@@ -2170,9 +2280,10 @@ function getActionName(action)
 	return "Unknown Action: " .. tostring(action)
 end
 
-function handleAction(action)
-	if type((action_data[action] or {}).actionFunction) == "function" then
-		action_data[action].actionFunction()
+function handleAction(action, fromMenu)
+	if fromMenu and not (action_data[action] or {}).dontCloseMenu then menu_close() end
+	if (action_data[action] or {}).actionFunction then
+		tryRunGlobalFunction(action_data[action].actionFunction)
 	end
 end
 
@@ -2370,8 +2481,8 @@ function menu_select(squareSelect)
 			showError("Oops, something went wrong. Trying to load nonexistant file." )
 		end
 	elseif selectedAction == "performAction" then
-		menu_close()
-		handleAction(selectedItem.targetAction)
+		--menu_close()
+		handleAction(selectedItem.targetAction, true)
 	end
 	
 	-- If this menu item has a custom function to call, do
@@ -2639,6 +2750,7 @@ menu_data = {
 			{action = "offTrueDelayedSetting", targetVariable = "showSpyroPosition", prettyName = "Show Spyro's Position", description = "Renders a ghost at Spyro's position."},
 			{action = "offOnAlwaysSetting", targetVariable = "showArtisanProps", prettyName = "Show Artisan Props", description = "Some test objects in the Artisans Homeworld I used for calibrating the renderer."},
 			{action = "onOffSetting", targetVariable = "showSunnyFlightScanner", prettyName = "Show Sunny Flight Scanner", description = "Show a minimap of the area surrounding the planes in Sunny Flight."},
+			{action = "onOffSetting", targetVariable = "showGemRange", prettyName = "Show Gem Pickup Range", description = "Show an indicator of the octagonal area within which a gem can be picked up by Sparx."},
 			{action = "onOffSetting", targetVariable = "showGhostAnimations", prettyName = "Show Ghost Animations", description = "Changes a ghost's model to indicate charging and gliding states."},
 			{action = "onOffSetting", targetVariable = "timeFormat_frames", displayLUT = {[true] = "Frames", [false] = "Decimal",}, prettyName = "Sub-second Displays As", description = displayType == "NTSC" and "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'30). The frame count will range from 0 to 59." or "The fractional part of times can be displayed with either a decimal (-2.50) or frame count (-2'25). The frame count will range from 0 to 49.",},
 			{action = "onOffSetting", targetVariable = "showDeltaPercent", prettyName = "Show Delta Percent", description = "At the end of each segment, show the percent difference from the comparison time."},
@@ -2838,6 +2950,72 @@ menu_data = {
 					table.insert(menu_items, {action = "loadSegment", target = "PostCredits", display = "Post Credits", description = commonDescription, squareSelect = {action = "changeMenu", target = "warp settings", options = {"Level", menu_options, "PostCredits"},},})
 				end
 				table.insert(menu_items, {action = "back",})
+			end
+		end,
+	},
+	["named savepoint menu"] = {
+		menuType = "normal",
+		title = "Named Savepoints",
+		description = nil,
+		items = {},
+		openFunction = function(self)
+			
+			manual_populateNamedSavesIfNeeded()
+			
+			local commonDescription = "Press X to load savepoint. Press square to delete savepoint."
+			
+			menu_items = {}
+			
+			if manual_namedSaves._head.Next == manual_namedSaves._head then
+				-- Condition: No named states exist, so refuse to open menu
+				menu_back()
+				menu_open("notice", {message = "There are no named savepoints yet. You can create one by setting a savepoint and then selecting \"Name Current Savepoint\" from the action menu."})
+				return
+			end
+			
+			local target = manual_namedSaves._head
+			
+			while target ~= manual_namedSaves._head.prev do
+				target = target.Next
+				table.insert(menu_items, {action = "function", target = target, display = target.name, description = commonDescription,
+					selectFunction = function(self)
+						-- Function when the player presses X to load save
+						manual_loadNamedSave(self.target)
+						menu_close()
+					end, squareSelect = {action = "function", target = target,
+						selectFunction = function(self)
+							-- Function when the player pressed Square to delete save
+							
+							-- Remove the menu item
+							table.remove(menu_items, menu_cursor)
+							-- Menu up if we're at the end of the menu
+							if menu_cursor > #menu_items then
+								menu_cursor = math.max(1, menu_cursor - 1)
+							end
+							menu_cursorFlash_timer = menu_cursorFlash_period
+							menu_cursorFlash = true
+							-- Delete the file
+							os.remove(self.target.fileName)
+							-- Remove file from cache
+							setGlobalVariable({"savestateData", "manual", "all", self.target.name}, nil)
+							-- Remove the save from manual_namedSaves
+							if self.target.Next == self.target then
+								-- Condition: There is only one item left in the list
+								manual_namedSaves = nil
+								manual_currentNamedSave = nil
+								menu_back()
+							else
+								-- Condition: There will still be at least one
+								-- item left in the list after deleting this one
+								self.target.Next.prev = self.target.prev
+								self.target.prev.Next = self.target.Next
+								if manual_currentNamedSave == self.target then
+									manual_currentNamedSave = self.target.Next
+								end
+							end
+						end,
+					},
+				})
 			end
 		end,
 	},
@@ -3689,7 +3867,7 @@ function draw_endOfRun()
 		if showDeltaPercent then
 			percent = menu_runUpdate_delta / (run_lastRecording.length - menu_runUpdate_delta)
 			local sign = percent >= 0 and "+" or ""
-			percent = "   " .. string.format("%s%.0d%%", sign, percent * 100)
+			percent = "   " .. string.format("%s%d%%", sign, percent * 100)
 		end
 
 		local s, c = getFormattedTime(menu_runUpdate_delta, true, menu_runUpdate_forceFrames)--This should not be calculated here. 
@@ -3894,6 +4072,8 @@ do -- Variables used by all recording modes
 	
 	allGhosts = {}
 	rebuildAllGhosts = false
+	
+	hideAllGhosts = false
 end
 
 function clearAllRecordingData()
@@ -3901,6 +4081,7 @@ function clearAllRecordingData()
 	tryRunGlobalFunction("segment_clearData")
 	tryRunGlobalFunction("run_clearData")
 	allGhosts = {}
+	hideAllGhosts = false
 end
 
 -------------------------
@@ -3911,6 +4092,8 @@ do -- Manual Mode Variables
 	manual_recording = nil
 	manual_ghost = nil
 	manual_stateExists = false
+	manual_namedSaves = nil
+	manual_currentNamedSave = nil
 end
 
 function manual_clearData()
@@ -3929,6 +4112,107 @@ end
 function loadQuickSavestate()
 	saveStateRequested = true
 	savestate.load(file.combinePath("data", "quicksave"))
+end
+
+function manual_populateNamedSavesIfNeeded()
+	if manual_namedSaves == nil then
+		manual_currentNamedSave = nil
+		
+		manual_namedSaves = {_head = {name = "_head"}}
+		manual_namedSaves._head.Next = manual_namedSaves._head
+		manual_namedSaves._head.prev = manual_namedSaves._head
+		
+		local firstItem = {}
+		for s, f in pairs(getGlobalVariable({"savestateData", "manual", "all"}) or {}) do
+			local target = manual_namedSaves._head
+			while s > target.Next.name and target.Next ~= manual_namedSaves._head do
+				target = target.Next
+			end
+			manual_namedSaves[s] = {name = s, fileName = f,}
+			manual_namedSaves[s].Next = target.Next
+			manual_namedSaves[s].prev = target
+			target.Next.prev = manual_namedSaves[s]
+			target.Next = manual_namedSaves[s]
+		end
+		manual_namedSaves._head.Next.prev = manual_namedSaves._head.prev
+		manual_namedSaves._head.prev.Next = manual_namedSaves._head.Next
+	end
+end
+
+function manual_createNamedSave ()
+	if manual_stateExists then
+		menu_open("keyboard input", {
+			description = "Please enter a name for this savepoint. Any savepoint with the same name will be overwritten.",
+			openFunction = function(self) self.keyboard_output = "" end,
+			doneFunction = function(self) 
+				self.keyboard_output = bizstring.replace(string.trim(self.keyboard_output), "-", "_")
+				if (self.keyboard_output or "") ~= "" then
+					if self.keyboard_output == "_head" then self.keyboard_output = "__head" end
+					local f = file.combinePath("Savestates", displayType .. " - manual - all - " .. self.keyboard_output .. " - v1.state")
+					file.copy(file.combinePath("data", "quicksave"), f)
+					setGlobalVariable({"savestateData", "manual", "all", self.keyboard_output}, f)
+					manual_namedSaves = nil
+				end
+				menu_back()
+			end,
+		})
+	else
+		if menu_state == nil then
+			showMessage("Set a savepoint first, then name it.")
+		else
+			menu_open("notice", {message = "No savepoint currently exists. Please set a savepoint first. Then you can name it."})
+		end
+	end
+end
+
+function manual_loadNamedSave (target)
+	-- We need target to reference an entry in
+	-- manual_namedSaves. If it is a string, try using
+	-- using it as a key.
+	if type(target) == "string" then target = manual_namedSaves[target] end
+	
+	-- If we still don't have a table, then return error
+	if type(target) ~= "table" then
+		showMessage("Failed to load named savepoint: unrecognized target")
+		return
+	end
+	
+	-- Check that the target contains a filename
+	if target.fileName == nil then
+		if target == manual_namedSaves._head then
+			if manual_namedSaves._head.Next == manual_namedSaves._head then
+				showMessage("Failed to load named savepoint: none currently exist")
+				return
+			else
+				showMessage("Failed to load named savepoint: target out of bounds")
+				return
+			end
+		end
+		showMessage("Failed to load named savepoint: target lacks filename")
+		return
+	end
+	
+	-- Load the named save
+	manual_clearData()
+	
+	manual_currentNamedSave = target
+	manual_stateExists = true
+
+	file.copy(target.fileName, file.combinePath("data", "quicksave"))
+	
+	loadQuickSavestate()
+end
+
+function manual_loadNextNamedSave()
+	manual_populateNamedSavesIfNeeded()
+	manual_currentNamedSave = manual_currentNamedSave or manual_namedSaves._head
+	manual_loadNamedSave(manual_currentNamedSave.Next)
+end
+
+function manual_loadPreviousNamedSave()
+	manual_populateNamedSavesIfNeeded()
+	manual_currentNamedSave = manual_currentNamedSave or manual_namedSaves._head
+	manual_loadNamedSave(manual_currentNamedSave.prev)
 end
 
 -------------------------
@@ -4072,13 +4356,54 @@ function segment_start()
 	end
 end
 
-function segment_halt()
+function segment_halt(haltCondition)
 	if recordingMode ~= "segment" and recordingMode ~= "run" then return end
 	
 	
 	-- Handle full runs
 	if recordingMode == "run" and run_recording ~= nil then
-		run_recording.segmentSplits[getSegmentHandle()] = emu.framecount() - run_recording.zeroFrame
+		-- Record the time of this split in the current full run recording.
+		
+		-- If halt is conditional, the split  isonly be recorded if
+		-- it is not overwriting one that already exists.
+		local conditionalHalt = false
+		-- If halt is not valid, the split will never be recorded.
+		local validHalt = true
+		
+		if haltCondition == "flightLevelFail" then
+			-- Do not record flight level fails
+			validHalt = false
+		elseif haltCondition == "levelLoad" then
+			if levelInfo[currentSegment[2]].flightLevel and currentSegment[3] == "Entry" then
+				-- Only record the exit from a flight level if we exit
+				-- without first getting a flightLevelSucceed halt.
+				conditionalHalt = true
+			end
+		elseif haltCondition == "balloon" then
+			conditionalHalt = true
+		elseif haltCondition == "cutsceneEntry" then
+			conditionalHalt = true
+		end
+		
+		local sh = getSegmentHandle()
+		
+		--print(string.format("%s %d %s", currentSegment[1], currentSegment[2], currentSegment[3]))
+		
+		if validHalt then
+			if conditionalHalt then
+				if run_recording.segmentSplits[sh] == nil then
+					run_recording.segmentSplits[sh] = emu.framecount() - run_recording.zeroFrame
+					--print(string.format("%d - %s - Halt Accepted", emu.framecount(), haltCondition))
+				else
+					--print(string.format("%d - %s - Halt Rejected", emu.framecount(), haltCondition))
+				end
+			else
+				run_recording.segmentSplits[sh] = emu.framecount() - run_recording.zeroFrame
+				--print(string.format("%d - %s - Halted", emu.framecount(), haltCondition))
+			end
+		else
+			--print(string.format("%d - %s - Halt Invalid", emu.framecount(), haltCondition))
+		end
 	end
 	if recordingMode == "run" and not run_showSegmentGhosts then return end
 	
@@ -4375,33 +4700,55 @@ function run_updateRankings()
 	
 	local overtakes = {}
 	
-	for i, v in ipairs(run_ranking) do
-		local oldTime = v.rankingLastFrame
-		local newTime = emu.framecount() - v.zeroFrame
-		for k, t in pairs(v.segmentSplits) do
+	-- Loop through all the ghosts in the race
+	for rankA, ghostA in ipairs(run_ranking) do
+		local oldTime = ghostA.rankingLastFrame
+		local newTime = emu.framecount() - ghostA.zeroFrame
+		-- Search through the possible segments
+		for seg, t in pairs(ghostA.segmentSplits) do
+			-- Check if we've completed this segment this frame
 			if t > oldTime and t <= newTime then
-				--print("split: " .. tostring(v.rankingName))
-				for ii, vv in ipairs(run_ranking) do
-					if ii >= i then break end
-					if vv.segmentSplits[k] and vv.segmentSplits[k] > t then
-						table.insert(overtakes, {v, vv})
+				-- Condition: ghostA has completed segment seg at on this frame
+				
+				--print("split: " .. tostring(ghostA.rankingName))
+				
+				-- Loop through the remaining ghosts, looking for any that have not yet completed this segment
+				for rankB, ghostB in ipairs(run_ranking) do
+				
+					-- if ghostB is ranked behind ghostA, then ghostA cannot be overtaking at this time
+					if rankB >= rankA then break end
+					
+					if ghostB.segmentSplits[seg] and ghostB.segmentSplits[seg] > t then
+						-- ghostB isn't going to complete this segment until later, so overtake them.
+						-- (We only know future times for the ghosts, so this check will never allow overtaking the player)
+						table.insert(overtakes, {ghostA, ghostB})
 					end
 				end
-				-- Check for overtaking the player
-				if gameState ~= 12 and v ~= run_recording and k == getSegmentHandle() then
-					table.insert(overtakes, {v, run_recording})
+				
+				-- The code above will allow the player to overtake ghosts, but not the other way around.
+				-- So the code below is needed to allow ghosts to overtake the player.
+				
+				-- (ghostA is the ghost that has finished a segment on this frame)
+				
+				-- Check if ghostA is not the player and has just finished a segment
+				-- that the player is currently working on.
+				if ghostA ~= run_recording and seg == getSegmentHandle() and run_recording.segmentSplits[seg] == nil then
+					table.insert(overtakes, {ghostA, run_recording})
 				end
-				if v == run_recording then
-					for ii, vv in ipairs(run_ranking) do
-						if vv.segmentSplits[k] and vv.segmentSplits[k] < t then
-							table.insert(overtakes, {vv, v})
+				
+				-- Check if ghostA is the player and has just finished a segment that
+				-- another ghost has already finished.
+				if ghostA == run_recording then
+					for rankB, ghostB in ipairs(run_ranking) do
+						if ghostB.segmentSplits[seg] and ghostB.segmentSplits[seg] < t then
+							table.insert(overtakes, {ghostB, ghostA})
 						end
 					end
 				end
 				break
 			end
 		end
-		v.rankingLastFrame = newTime
+		ghostA.rankingLastFrame = newTime
 	end
 	
 	--[[ DEBUG: show overtakes in console as they happen
@@ -6163,6 +6510,8 @@ end
 function onLoadSavestate()
 	rebuildAllGhosts = true
 	
+	hideAllGhosts = false
+	
 	requestedState = nil
 	os.remove(file.combinePath("data", "requestedState.txt"))
 
@@ -6349,6 +6698,39 @@ while true do
 			memory.write_u32_le(0x077FC8 + m[4], math.max(memory.read_u32_le(0x077FC8 + m[4]), memory.read_u32_le(gemCountAddress) - 1))
 		end
 		
+		-- Draw gem ranges
+		if showGemRange and (gameState == 0 or gameState == 4 or gameState == 8)  then
+			local entityTableAddr = memory.read_u32_le(0x075828 + m[3])
+			-- Loop through entity table
+			for i = 0, 300 do
+				local addr = entityTableAddr + 0x58 * i
+				local active = memory.read_s8(addr + 0x48)
+				-- The table terminates with an entity with activity of -1
+				if active == -1 then
+					break
+				end
+				local entityType = memory.read_s16_le(addr + 0x36)
+				if active > -1 and entityType >= 0x53 and entityType <= 0x57 then
+					-- Condition: entity is active and a gem
+					if memory.read_s8(addr + 0x49) < 3 then
+						-- Condition: gem has not yet been picked up by Sparxs
+						-- This memory address has a value of 1 when the gem is resting
+						-- on the ground, 2 when it is falling, and 3 when it is homing
+						-- in on Spyro.
+						local x = memory.read_u32_le(addr + 0x0C)
+						local y = memory.read_u32_le(addr + 0x10)
+						local z = memory.read_u32_le(addr + 0x14)
+						local distanceFromCamera = math.sqrt((cameraX - x)^2 + (cameraY - y)^2 + (cameraZ - z)^2)
+						if distanceFromCamera < 14000 then
+							--The gem's range will fade in from an alpha of 0x00 at 14000 to an alpha of 0x80 at 10000					
+							drawColor = 0x00FFFFFF + bit.lshift(((math.min(10000 - distanceFromCamera, 0) / 4000) + 1) * 0x80, 24)
+							drawRange({x, y, z}, 0x059A)
+						end
+					end
+				end
+			end
+		end
+		
 		--Handle Spyro Palettes
 		if loadingState == 6 and lastLoadingState ~= 6 then
 			-- Spyro's palette data gets overwritten during
@@ -6417,14 +6799,21 @@ while true do
 		for i, ghost in ipairs(allGhosts) do
 			Ghost.update(ghost)
 		end
-		-- Sort ghosts by distance in front of the camera
-		table.sort(allGhosts, function(a, b)
-			if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
-			return a._cameraRange > b._cameraRange
-		end)
-		-- Draw the ghosts
-		for i, ghost in ipairs(allGhosts) do
-			ghost:draw()
+		
+		-- Check that we should draw the ghosts
+		if hideAllGhosts then
+			gui.drawText(border_right - 20, border_bottom - 20, "Ghosts are hidden", "white", "black", 12, nil, "bottom", "right")
+		else
+			-- Sort ghosts by distance in front of the camera
+			table.sort(allGhosts, function(a, b)
+				if not a.isPlaying or not a._doDraw or not b.isPlaying or not b._doDraw then return nil end
+				return a._cameraRange > b._cameraRange
+			end)
+			-- Draw the ghosts
+			drawColor = 0xE0FFFFFF -- default ghost color
+			for i, ghost in ipairs(allGhosts) do
+				ghost:draw()
+			end
 		end
 		
 		-- Update rankings in full run mode
@@ -6444,7 +6833,7 @@ while true do
 						gui.drawText(x, y, v.rankingName, "white", "black", 12, nil, nil, "right")
 						y = y + dy
 					end
-					if run_showRankNames and v.ghostLevel == currentLevel and v._position then
+					if run_showRankNames and v.ghostLevel == currentLevel and v._position and not hideAllGhosts then
 						local gx, gy = worldSpaceToScreenSpace(v._position[1], v._position[2], v._position[3] + 280)
 						if gx > 0 then
 							gui.drawText(gx, gy, v.rankingName, v.color, nil, 12, nil, nil, "center", "bottom")
